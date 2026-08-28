@@ -1,7 +1,7 @@
 /*
   Rubato Lag - phrase-relative humanize for Logic Pro's Scripter MIDI FX
   ------------------------------------------------------------------------
-  Version: 1.6.7 - 2026-08-27
+  Version: 1.6.8 - 2026-08-28
 
   Every saved Patch (.pst) and every project freezes its OWN private copy of
   this script text - there is no external reference back to this source
@@ -115,12 +115,17 @@
 
 var NeedsTimingInfo = true;
 
-var SCRIPT_VERSION = "1.6.7 - 2026-08-27";   // keep in sync with the header comment and the "rbt Version" display param
+var SCRIPT_VERSION = "1.6.8 - 2026-08-28";   // keep in sync with the header comment and the "rbt Version" display param
 
 // Per-note Trace is off unless "rbt Trace Notes" is checked. Trace() is
 // cheap-ish, but a busy MIDI track will still flood the console.
 function tracing() {
     return GetParameter("rbt Trace Notes") > 0;
+}
+
+function noteTag(event) {
+    if (GetParameter("rbt Trace Pitch") > 0) return "pitch=" + event.pitch + " ";
+    return "";
 }
 
 // Meta compressor on MIDI velocity (not the phrase Velocity Amount curve).
@@ -225,6 +230,7 @@ var PluginParameters = [
     {name: "rbt Chord Spread (ms)", type: "lin", minValue: 0, maxValue: 30, numberOfSteps: 30, defaultValue: 0},
 
     {name: "rbt Trace Notes", type: "checkbox", defaultValue: 0},
+    {name: "rbt Trace Pitch", type: "checkbox", defaultValue: 0},
 
     {name: "rbt XL Faders", type: "checkbox", defaultValue: 1}
 ];
@@ -318,7 +324,7 @@ function HandleMIDI(event) {
             var used0 = emitDelayed(event, spreadMs);
             if (!activeDelays[key]) activeDelays[key] = [];
             activeDelays[key].push(used0);
-            if (tracing()) Trace("NoteOn pitch=" + event.pitch + " passthrough spreadMs=" + used0.toFixed(1) + " vel=" + event.velocity);
+            if (tracing()) Trace("NoteOn " + noteTag(event) + "passthrough spreadMs=" + used0.toFixed(1) + " vel=" + event.velocity);
             return;
         }
 
@@ -341,7 +347,7 @@ function HandleMIDI(event) {
         if (!activeDelays[key]) activeDelays[key] = [];
         activeDelays[key].push(used);
 
-        if (tracing()) Trace("NoteOn pitch=" + event.pitch + " t=" + t.toFixed(2) + " delayMs=" + used.toFixed(1) + " vel=" + event.velocity + " (delta=" + velDelta.toFixed(1) + ")");
+        if (tracing()) Trace("NoteOn " + noteTag(event) + "t=" + t.toFixed(2) + " delayMs=" + used.toFixed(1) + " vel=" + event.velocity + " (delta=" + velDelta.toFixed(1) + ")");
     } else {
         // NoteOff: pop the oldest still-open delay for this pitch, so it pairs with
         // whichever NoteOn actually started this particular note, even if the same
@@ -354,7 +360,7 @@ function HandleMIDI(event) {
         }
         var delayMs = queue.shift();
         var usedOff = emitDelayed(event, delayMs);
-        if (tracing()) Trace("NoteOff pitch=" + event.pitch + " delayMs=" + usedOff.toFixed(1));
+        if (tracing()) Trace("NoteOff " + noteTag(event) + "delayMs=" + usedOff.toFixed(1));
     }
 }
 

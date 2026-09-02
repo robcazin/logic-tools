@@ -72,6 +72,14 @@ private:
     juce::Slider pulseDepthSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseDepthAttachment;
     
+    juce::Label pulseRateLabel;
+    juce::ComboBox pulseRateBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> pulseRateAttachment;
+    
+    juce::Label pulseOffsetLabel;
+    juce::Slider pulseOffsetSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseOffsetAttachment;
+    
     juce::Label driftDepthLabel;
     juce::Slider driftDepthSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> driftDepthAttachment;

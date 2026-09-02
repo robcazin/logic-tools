@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 660);
+    setSize(800, 700);
     
     displayBandVelocities.fill(0);
     
@@ -144,6 +144,27 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     addAndMakeVisible(pulseDepthSlider);
     pulseDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "pulseDepth", pulseDepthSlider);
+    
+    pulseRateLabel.setText("Pulse Rate", juce::dontSendNotification);
+    pulseRateLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(pulseRateLabel);
+    pulseRateBox.addItem("1/4 bar", 1);
+    pulseRateBox.addItem("1/2 bar", 2);
+    pulseRateBox.addItem("1 bar", 3);
+    pulseRateBox.addItem("2 bars", 4);
+    pulseRateBox.addItem("4 bars", 5);
+    addAndMakeVisible(pulseRateBox);
+    pulseRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processor.getApvts(), "pulseRate", pulseRateBox);
+    
+    pulseOffsetLabel.setText("Pulse Offset", juce::dontSendNotification);
+    pulseOffsetLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(pulseOffsetLabel);
+    pulseOffsetSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    pulseOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    addAndMakeVisible(pulseOffsetSlider);
+    pulseOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.getApvts(), "pulseOffset", pulseOffsetSlider);
     
     driftDepthLabel.setText("Drift Depth", juce::dontSendNotification);
     driftDepthLabel.setJustificationType(juce::Justification::centredLeft);
@@ -321,7 +342,7 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 380);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
-    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 200);
+    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 280);
     drawControlGroup(g, pulseGroupBounds, "Pulse / Drift");
 }
 
@@ -391,8 +412,16 @@ void RubatoEditor::resized()
     pulseDepthSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
     
     row += sliderRowHeight;
+    pulseRateLabel.setBounds(pulseX, pulseY + row, 100, 20);
+    pulseRateBox.setBounds(pulseX + 110, pulseY + row, 100, 20);
+    
+    row += comboRowHeight;
+    pulseOffsetLabel.setBounds(pulseX, pulseY + row, 100, 20);
+    pulseOffsetSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
+    
+    row += sliderRowHeight;
     driftDepthLabel.setBounds(pulseX, pulseY + row, 100, 20);
     driftDepthSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
     
-    xlModeToggle.setBounds(550, 480, 100, 25);
+    xlModeToggle.setBounds(550, 540, 100, 25);
 }

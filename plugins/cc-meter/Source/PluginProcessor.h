@@ -87,7 +87,7 @@ private:
     
     float calculatePhraseFraction(juce::AudioPlayHead::PositionInfo& pos);
     float curveValue(float t, int shapeIndex);
-    void applyLife(float t, float& amount);
+    void applyLife(juce::AudioPlayHead::PositionInfo& pos, float& amount);
     int compressVelocity(int vel, int threshold, float ratio);
     int getBandIndex(int pitch);
 

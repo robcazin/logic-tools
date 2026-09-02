@@ -35,6 +35,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
     // Pulse/Drift controls
     layout.add(std::make_unique<juce::AudioParameterInt>(
         "pulseDepth", "Pulse Depth", 0, 100, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "pulseRate", "Pulse Rate", juce::StringArray{"1/4 bar", "1/2 bar", "1 bar", "2 bars", "4 bars"}, 2));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        "pulseOffset", "Pulse Offset", 0, 100, 0));
     layout.add(std::make_unique<juce::AudioParameterInt>(
         "driftDepth", "Drift Depth", 0, 100, 0));
     
@@ -86,7 +90,7 @@ float RubatoProcessor::curveValue(float t, int shapeIndex)
     }
 }
 
-void RubatoProcessor::applyLife(float t, float& amount)
+void RubatoProcessor::applyLife(juce::AudioPlayHead::PositionInfo& pos, float& amount)
 {
     const int pulseDepth = apvts.getRawParameterValue("pulseDepth")->load();
     const int driftDepth = apvts.getRawParameterValue("driftDepth")->load();
@@ -94,15 +98,45 @@ void RubatoProcessor::applyLife(float t, float& amount)
     if (pulseDepth == 0 && driftDepth == 0)
         return;
     
-    const float pi = juce::MathConstants<float>::pi;
-    float pulse = (pulseDepth / 100.0f) * std::sin(pi * t);
+    auto ppqPos = pos.getPpqPosition();
+    auto timeSignature = pos.getTimeSignature();
     
-    float drift = 0.0f;
-    if (driftDepth > 0) {
-        drift = (driftDepth / 100.0f) * std::sin(pi * t / 2.0f);
+    if (!ppqPos.hasValue() || !timeSignature.hasValue())
+        return;
+    
+    double beatsPerBar = timeSignature->numerator * 4.0 / timeSignature->denominator;
+    double blockStartBeat = *ppqPos - anchorBeat + 1.0;
+    double bars = blockStartBeat / beatsPerBar;
+    
+    const float pi = juce::MathConstants<float>::pi;
+    float base = amount;
+    
+    if (pulseDepth > 0) {
+        const int pulseRateIndex = apvts.getRawParameterValue("pulseRate")->load();
+        const int pulseOffsetPct = apvts.getRawParameterValue("pulseOffset")->load();
+        
+        float pulsePeriodBars = 1.0f;
+        if (pulseRateIndex == 0) pulsePeriodBars = 0.25f;
+        else if (pulseRateIndex == 1) pulsePeriodBars = 0.5f;
+        else if (pulseRateIndex == 2) pulsePeriodBars = 1.0f;
+        else if (pulseRateIndex == 3) pulsePeriodBars = 2.0f;
+        else pulsePeriodBars = 4.0f;
+        
+        float offset01 = pulseOffsetPct / 100.0f;
+        float unipolarPulse = 0.5f * (1.0f + std::sin(2.0f * pi * (static_cast<float>(bars) / pulsePeriodBars + offset01)));
+        
+        float pulseDepth01 = pulseDepth / 100.0f;
+        amount = base + (1.0f - base) * pulseDepth01 * unipolarPulse;
     }
     
-    amount *= (1.0f + pulse + drift);
+    if (driftDepth > 0) {
+        float driftPeriodBars = 2.0f;
+        float unipolarDrift = 0.5f * (1.0f + std::sin(2.0f * pi * (static_cast<float>(bars) / driftPeriodBars)));
+        
+        float driftAmt = 0.35f * (driftDepth / 100.0f);
+        base = amount;
+        amount = base + (1.0f - base) * driftAmt * unipolarDrift;
+    }
 }
 
 int RubatoProcessor::compressVelocity(int vel, int threshold, float ratio)
@@ -260,7 +294,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         phraseCurveValue.store(static_cast<int>(curveVal * 127.0f), std::memory_order_relaxed);
         
         float timingAmount = amountMs * curveVal;
-        applyLife(phraseFrac, timingAmount);
+        applyLife(pos, timingAmount);
         
         float normalizedIntensity = juce::jlimit(0.0f, 1.0f, timingAmount / 120.0f);
         phraseTimingIntensity.store(static_cast<int>(normalizedIntensity * 127.0f), std::memory_order_relaxed);
@@ -330,7 +364,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             } else {
                 float curveVal = curveValue(phraseFrac, shapeIndex);
                 float timingAmount = amountMs * curveVal;
-                applyLife(phraseFrac, timingAmount);
+                applyLife(pos, timingAmount);
                 
                 float totalDelayMs = timingAmount + spreadMs;
                 

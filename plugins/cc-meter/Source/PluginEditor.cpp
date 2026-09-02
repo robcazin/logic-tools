@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 930);
+    setSize(800, 1025);
     
     displayBandVelocities.fill(0);
     
@@ -162,6 +162,15 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     addAndMakeVisible(compRatioSlider);
     compRatioAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "compRatio", compRatioSlider);
+    
+    squishLabel.setText("Squish", juce::dontSendNotification);
+    squishLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(squishLabel);
+    squishSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    squishSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    addAndMakeVisible(squishSlider);
+    squishAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.getApvts(), "squish", squishSlider);
     
     pulseDepthLabel.setText("Pulse Depth", juce::dontSendNotification);
     pulseDepthLabel.setJustificationType(juce::Justification::centredLeft);
@@ -404,7 +413,7 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 380);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 665);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 760);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
     juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 280);
@@ -480,6 +489,10 @@ void RubatoEditor::resized()
     row += sliderRowHeight;
     compRatioLabel.setBounds(velX, velY + row, 100, 20);
     compRatioSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    
+    row += sliderRowHeight;
+    squishLabel.setBounds(velX, velY + row, 100, 20);
+    squishSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
     int pulseX = 550;
     int pulseY = 265;

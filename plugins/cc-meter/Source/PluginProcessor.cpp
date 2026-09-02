@@ -37,6 +37,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
         "compThreshold", "Comp Threshold", 1, 127, 127));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         "compRatio", "Comp Ratio", 1.0f, 20.0f, 1.0f));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        "squish", "Squish", -100, 100, 0));
     
     // Pulse/Drift controls
     layout.add(std::make_unique<juce::AudioParameterInt>(
@@ -304,6 +306,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int floor = apvts.getRawParameterValue("floor")->load();
     const int compThreshold = apvts.getRawParameterValue("compThreshold")->load();
     const float compRatio = apvts.getRawParameterValue("compRatio")->load();
+    const int squish = apvts.getRawParameterValue("squish")->load();
     const int chordSpreadMs = apvts.getRawParameterValue("chordSpreadMs")->load();
     
     float phraseFrac = calculatePhraseFraction(pos);
@@ -534,6 +537,14 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             }
             
             vel = compressVelocity(vel, compThreshold, compRatio);
+            
+            if (squish != 0) {
+                float u = juce::jlimit(1.0f / 128.0f, 127.0f / 128.0f, vel / 128.0f);
+                float logit = std::log(u / (1.0f - u));
+                float k = squish * (1.0f / 20.0f);
+                float s = 1.0f / (1.0f + std::exp(-(logit + k)));
+                vel = juce::jlimit(1, 127, static_cast<int>(std::round(s * 128.0f)));
+            }
             
             int bandIndex = getBandIndex(note.pitch);
             if (outputBandPeaks[bandIndex] < vel)

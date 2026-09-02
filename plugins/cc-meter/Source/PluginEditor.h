@@ -80,6 +80,10 @@ private:
     juce::Slider compRatioSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compRatioAttachment;
     
+    juce::Label squishLabel;
+    juce::Slider squishSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> squishAttachment;
+    
     juce::Label pulseDepthLabel;
     juce::Slider pulseDepthSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseDepthAttachment;

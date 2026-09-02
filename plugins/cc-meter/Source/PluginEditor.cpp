@@ -293,8 +293,7 @@ void RubatoEditor::timerCallback()
         displayNotes.erase(displayNotes.begin());
     }
     
-    if (!displayNotes.empty() || needsRepaint)
-        repaint();
+    repaint();
 }
 
 void RubatoEditor::drawPhraseMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
@@ -327,7 +326,18 @@ void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds
     g.setColour(juce::Colour(0xff404040));
     g.drawRect(bounds, 1);
     
-    const float fillHeight = (displayPhraseCurve / 127.0f) * (bounds.getHeight() - 2);
+    int velCurve = processor.getVelocityShapeCurve();
+    int floor = processor.getApvts().getRawParameterValue("floor")->load();
+    int ceiling = processor.getApvts().getRawParameterValue("compThreshold")->load();
+    
+    int lo = juce::jlimit(1, 127, floor);
+    int hi = juce::jlimit(1, 127, ceiling);
+    if (hi < lo) hi = lo;
+    
+    float curveNorm = velCurve / 127.0f;
+    int shapedLevel = lo + static_cast<int>(std::round(curveNorm * static_cast<float>(hi - lo)));
+    
+    const float fillHeight = (shapedLevel / 127.0f) * (bounds.getHeight() - 2);
     const float fillY = bounds.getBottom() - 1 - fillHeight;
     
     juce::Rectangle<float> fillRect(

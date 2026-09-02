@@ -322,6 +322,9 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         
         float normalizedIntensity = juce::jlimit(0.0f, 1.0f, timingAmount / 120.0f);
         phraseTimingIntensity.store(static_cast<int>(normalizedIntensity * 127.0f), std::memory_order_relaxed);
+        
+        float velCurveVal = curveValue(phraseFrac, velocityShapeIndex);
+        velocityShapeCurve.store(static_cast<int>(velCurveVal * 127.0f), std::memory_order_relaxed);
     } else {
         phraseTimingIntensity.store(0, std::memory_order_relaxed);
     }

@@ -66,7 +66,7 @@ void CcMeterEditor::paint(juce::Graphics& g)
     gradient.addColour(0.0, juce::Colour(0xffff0000));
     
     g.setGradientFill(gradient);
-    g.fillRect(meterX + 2, fillY, meterWidth - 4, fillHeight - 2);
+    g.fillRect((float)(meterX + 2), fillY, (float)(meterWidth - 4), juce::jmax(0.0f, fillHeight - 2.0f));
     
     g.setColour(juce::Colour(0xff606060));
     for (int i = 0; i <= 8; ++i)

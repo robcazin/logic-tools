@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 905);
+    setSize(800, 945);
     
     displayBandVelocities.fill(0);
     
@@ -320,6 +320,10 @@ void RubatoEditor::drawPhraseMeter(juce::Graphics& g, juce::Rectangle<int> bound
 
 void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
+    auto velY = [](juce::Rectangle<int> b, float vel) { 
+        return b.getBottom() - (vel / 127.0f) * b.getHeight(); 
+    };
+    
     g.setColour(juce::Colour(0xff2a2a2a));
     g.fillRect(bounds);
     
@@ -337,15 +341,15 @@ void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds
     float curveNorm = velCurve / 127.0f;
     int shapedLevel = lo + static_cast<int>(std::round(curveNorm * static_cast<float>(hi - lo)));
     
-    float floorY = bounds.getBottom() - 1 - ((lo / 127.0f) * (bounds.getHeight() - 2));
-    float shapedY = bounds.getBottom() - 1 - ((shapedLevel / 127.0f) * (bounds.getHeight() - 2));
+    float floorYPos = velY(bounds, static_cast<float>(lo));
+    float shapedYPos = velY(bounds, static_cast<float>(shapedLevel));
     
-    if (shapedY < floorY) {
+    if (shapedYPos < floorYPos) {
         juce::Rectangle<float> fillRect(
             static_cast<float>(bounds.getX() + 1),
-            shapedY,
+            shapedYPos,
             static_cast<float>(bounds.getWidth() - 2),
-            floorY - shapedY
+            floorYPos - shapedYPos
         );
         
         fillRect = fillRect.constrainedWithin(bounds.toFloat().reduced(1.0f));
@@ -354,12 +358,21 @@ void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds
         g.fillRect(fillRect);
     } else {
         g.setColour(juce::Colour(0xffff8c00));
-        g.drawHorizontalLine(static_cast<int>(floorY), static_cast<float>(bounds.getX() + 1), static_cast<float>(bounds.getRight() - 1));
+        g.fillRect(juce::Rectangle<float>(
+            static_cast<float>(bounds.getX() + 1),
+            floorYPos,
+            static_cast<float>(bounds.getWidth() - 2),
+            2.0f
+        ));
     }
 }
 
 void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
+    auto velY = [](juce::Rectangle<int> b, float vel) { 
+        return b.getBottom() - (vel / 127.0f) * b.getHeight(); 
+    };
+    
     g.setColour(juce::Colour(0xff2a2a2a));
     g.fillRect(bounds);
     
@@ -369,24 +382,34 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
     int floor = processor.getApvts().getRawParameterValue("floor")->load();
     int ceiling = processor.getApvts().getRawParameterValue("compThreshold")->load();
     
-    float floorY = bounds.getBottom() - (floor / 127.0f) * bounds.getHeight();
-    float ceilingY = bounds.getBottom() - (ceiling / 127.0f) * bounds.getHeight();
+    float floorYPos = velY(bounds, static_cast<float>(floor));
+    float ceilingYPos = velY(bounds, static_cast<float>(ceiling));
     
-    if (ceilingY < floorY) {
+    if (ceilingYPos < floorYPos) {
         g.setColour(juce::Colour(0x18ffffff));
         g.fillRect(juce::Rectangle<float>(
             static_cast<float>(bounds.getX()),
-            ceilingY,
+            ceilingYPos,
             static_cast<float>(bounds.getWidth()),
-            floorY - ceilingY
+            floorYPos - ceilingYPos
         ));
     }
     
-    g.setColour(juce::Colour(0x806dbf4b));
-    g.drawHorizontalLine(static_cast<int>(floorY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
+    g.setColour(juce::Colour(0xee6dbf4b));
+    g.fillRect(juce::Rectangle<float>(
+        static_cast<float>(bounds.getX()),
+        floorYPos,
+        static_cast<float>(bounds.getWidth()),
+        2.0f
+    ));
     
-    g.setColour(juce::Colour(0x80c48a3a));
-    g.drawHorizontalLine(static_cast<int>(ceilingY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
+    g.setColour(juce::Colour(0xffc48a3a));
+    g.fillRect(juce::Rectangle<float>(
+        static_cast<float>(bounds.getX()),
+        ceilingYPos,
+        static_cast<float>(bounds.getWidth()),
+        2.0f
+    ));
     
     const int minPitch = 12;
     const int maxPitch = 107;
@@ -450,18 +473,17 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 393);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 649);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 419);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
-    juce::Rectangle<int> floorGroupBounds(290, 639, 220, 110);
+    juce::Rectangle<int> floorGroupBounds(290, 669, 220, 120);
     g.setColour(juce::Colour(0xff6dbf4b));
     g.drawRect(floorGroupBounds, 2);
     g.setFont(12.0f);
     g.drawText("Floor", floorGroupBounds.withHeight(20), juce::Justification::centred);
     
-    juce::Rectangle<int> compGroupBounds(290, 759, 220, 110);
-    g.setColour(juce::Colour(196, 138, 58));
-    g.drawRect(compGroupBounds, 2);
+    juce::Rectangle<int> compGroupBounds(290, 799, 220, 130);
+    g.setColour(juce::Colour(0xffc48a3a));
     g.drawRect(compGroupBounds, 2);
     g.setFont(12.0f);
     g.drawText("Comp", compGroupBounds.withHeight(20), juce::Justification::centred);
@@ -534,11 +556,11 @@ void RubatoEditor::resized()
     humanizeLabel.setBounds(velX, velY + row, 100, 20);
     humanizeSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
-    row += sliderRowHeight;
-    floorLabel.setBounds(velX, velY + row, 100, 20);
-    floorSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    int floorY = 694;
+    floorLabel.setBounds(velX, floorY, 100, 20);
+    floorSlider.setBounds(velX + 110, floorY - 10, 80, 80);
     
-    int compY = 784;
+    int compY = 824;
     compThresholdLabel.setBounds(velX, compY, 80, 20);
     compThresholdSlider.setBounds(velX, compY + 14, 80, 80);
     

@@ -211,7 +211,7 @@ void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds
     
     fillRect = fillRect.constrainedWithin(bounds.toFloat().reduced(1.0f));
     
-    g.setColour(juce::Colour(0xff9370db));
+    g.setColour(juce::Colour(0xffff8c00));
     g.fillRect(fillRect);
 }
 

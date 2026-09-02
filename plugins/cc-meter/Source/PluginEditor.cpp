@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 600);
+    setSize(800, 660);
     
     displayBandVelocities.fill(0);
     
@@ -301,6 +301,10 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> phraseMeterBounds(20, 20, 400, 8);
     drawPhraseMeter(g, phraseMeterBounds);
     
+    g.setColour(juce::Colours::lightgrey);
+    g.setFont(16.0f);
+    g.drawText("Rubato", juce::Rectangle<int>(20, 32, 400, 20), juce::Justification::centred);
+    
     juce::Rectangle<int> shapeMeterBounds(20, 80, 30, 120);
     drawShapeMeter(g, shapeMeterBounds);
     
@@ -311,13 +315,13 @@ void RubatoEditor::paint(juce::Graphics& g)
     g.setFont(11.0f);
     g.drawText("All notes", juce::Rectangle<int>(60, 208, 80, 12), juce::Justification::centred);
     
-    juce::Rectangle<int> timeGroupBounds(20, 240, 240, 320);
+    juce::Rectangle<int> timeGroupBounds(20, 240, 240, 380);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 320);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 380);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
-    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 160);
+    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 200);
     drawControlGroup(g, pulseGroupBounds, "Pulse / Drift");
 }
 
@@ -328,51 +332,67 @@ void RubatoEditor::resized()
     
     int timeX = 30;
     int timeY = 265;
-    int controlSpacing = 60;
     
-    amountLabel.setBounds(timeX, timeY, 100, 20);
-    amountSlider.setBounds(timeX + 110, timeY - 10, 80, 80);
+    int sliderRowHeight = 95;
+    int comboRowHeight = 35;
+    int buttonRowHeight = 40;
     
-    shapeLabel.setBounds(timeX, timeY + controlSpacing, 100, 20);
-    shapeBox.setBounds(timeX + 110, timeY + controlSpacing, 100, 20);
+    int row = 0;
+    amountLabel.setBounds(timeX, timeY + row, 100, 20);
+    amountSlider.setBounds(timeX + 110, timeY + row - 10, 80, 80);
     
-    phraseLengthLabel.setBounds(timeX, timeY + controlSpacing * 2, 100, 20);
-    phraseLengthSlider.setBounds(timeX + 110, timeY + controlSpacing * 2 - 10, 80, 80);
+    row += sliderRowHeight;
+    shapeLabel.setBounds(timeX, timeY + row, 100, 20);
+    shapeBox.setBounds(timeX + 110, timeY + row, 100, 20);
     
-    triggerModeLabel.setBounds(timeX, timeY + controlSpacing * 3, 100, 20);
-    triggerModeBox.setBounds(timeX + 110, timeY + controlSpacing * 3, 100, 20);
+    row += comboRowHeight;
+    phraseLengthLabel.setBounds(timeX, timeY + row, 100, 20);
+    phraseLengthSlider.setBounds(timeX + 110, timeY + row - 10, 80, 80);
     
-    reAnchorButton.setBounds(timeX, timeY + controlSpacing * 4, 100, 25);
+    row += sliderRowHeight;
+    triggerModeLabel.setBounds(timeX, timeY + row, 100, 20);
+    triggerModeBox.setBounds(timeX + 110, timeY + row, 100, 20);
     
-    chordSpreadLabel.setBounds(timeX, timeY + controlSpacing * 5 - 10, 100, 20);
-    chordSpreadSlider.setBounds(timeX + 110, timeY + controlSpacing * 5 - 20, 80, 80);
+    row += comboRowHeight;
+    reAnchorButton.setBounds(timeX, timeY + row, 100, 25);
+    
+    row += buttonRowHeight;
+    chordSpreadLabel.setBounds(timeX, timeY + row, 100, 20);
+    chordSpreadSlider.setBounds(timeX + 110, timeY + row - 10, 80, 80);
     
     int velX = 290;
     int velY = 265;
     
-    velocityBoostLabel.setBounds(velX, velY, 100, 20);
-    velocityBoostSlider.setBounds(velX + 110, velY - 10, 80, 80);
+    row = 0;
+    velocityBoostLabel.setBounds(velX, velY + row, 100, 20);
+    velocityBoostSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
-    velocityReplaceLabel.setBounds(velX, velY + controlSpacing, 100, 20);
-    velocityReplaceSlider.setBounds(velX + 110, velY + controlSpacing - 10, 80, 80);
+    row += sliderRowHeight;
+    velocityReplaceLabel.setBounds(velX, velY + row, 100, 20);
+    velocityReplaceSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
-    velocityShapeLabel.setBounds(velX, velY + controlSpacing * 2, 100, 20);
-    velocityShapeBox.setBounds(velX + 110, velY + controlSpacing * 2, 100, 20);
+    row += sliderRowHeight;
+    velocityShapeLabel.setBounds(velX, velY + row, 100, 20);
+    velocityShapeBox.setBounds(velX + 110, velY + row, 100, 20);
     
-    compThresholdLabel.setBounds(velX, velY + controlSpacing * 3, 100, 20);
-    compThresholdSlider.setBounds(velX + 110, velY + controlSpacing * 3 - 10, 80, 80);
+    row += comboRowHeight;
+    compThresholdLabel.setBounds(velX, velY + row, 100, 20);
+    compThresholdSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
-    compRatioLabel.setBounds(velX, velY + controlSpacing * 4, 100, 20);
-    compRatioSlider.setBounds(velX + 110, velY + controlSpacing * 4 - 10, 80, 80);
+    row += sliderRowHeight;
+    compRatioLabel.setBounds(velX, velY + row, 100, 20);
+    compRatioSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
     int pulseX = 550;
     int pulseY = 265;
     
-    pulseDepthLabel.setBounds(pulseX, pulseY, 100, 20);
-    pulseDepthSlider.setBounds(pulseX + 110, pulseY - 10, 80, 80);
+    row = 0;
+    pulseDepthLabel.setBounds(pulseX, pulseY + row, 100, 20);
+    pulseDepthSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
     
-    driftDepthLabel.setBounds(pulseX, pulseY + controlSpacing, 100, 20);
-    driftDepthSlider.setBounds(pulseX + 110, pulseY + controlSpacing - 10, 80, 80);
+    row += sliderRowHeight;
+    driftDepthLabel.setBounds(pulseX, pulseY + row, 100, 20);
+    driftDepthSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
     
-    xlModeToggle.setBounds(550, 420, 100, 25);
+    xlModeToggle.setBounds(550, 480, 100, 25);
 }

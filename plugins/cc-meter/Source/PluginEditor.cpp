@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 835);
+    setSize(800, 930);
     
     displayBandVelocities.fill(0);
     
@@ -135,6 +135,15 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     addAndMakeVisible(humanizeSlider);
     humanizeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "humanize", humanizeSlider);
+    
+    floorLabel.setText("Floor", juce::dontSendNotification);
+    floorLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(floorLabel);
+    floorSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    floorSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    addAndMakeVisible(floorSlider);
+    floorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.getApvts(), "floor", floorSlider);
     
     compThresholdLabel.setText("Comp Threshold", juce::dontSendNotification);
     compThresholdLabel.setJustificationType(juce::Justification::centredLeft);
@@ -413,7 +422,7 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 380);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 570);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 665);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
     juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 280);
@@ -477,6 +486,10 @@ void RubatoEditor::resized()
     row += sliderRowHeight;
     humanizeLabel.setBounds(velX, velY + row, 100, 20);
     humanizeSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    
+    row += sliderRowHeight;
+    floorLabel.setBounds(velX, velY + row, 100, 20);
+    floorSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
     row += sliderRowHeight;
     compThresholdLabel.setBounds(velX, velY + row, 100, 20);

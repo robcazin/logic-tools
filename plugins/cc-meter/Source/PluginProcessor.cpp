@@ -32,6 +32,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
     layout.add(std::make_unique<juce::AudioParameterInt>(
         "humanize", "Humanize", 0, 100, 0));
     layout.add(std::make_unique<juce::AudioParameterInt>(
+        "floor", "Floor", 1, 127, 1));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
         "compThreshold", "Comp Threshold", 1, 127, 127));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         "compRatio", "Comp Ratio", 1.0f, 20.0f, 1.0f));
@@ -159,17 +161,15 @@ void RubatoProcessor::applyLife(juce::AudioPlayHead::PositionInfo& pos, float& a
 
 int RubatoProcessor::compressVelocity(int vel, int threshold, float ratio)
 {
-    if (ratio <= 1.0f || vel <= threshold)
+    if (ratio <= 1.0f)
         return vel;
     
-    int compressed = threshold + static_cast<int>((vel - threshold) / ratio);
-    
-    if (vel < threshold && ratio > 1.0f) {
-        float floor = threshold / ratio;
-        compressed = static_cast<int>(floor + (vel - floor) * ratio);
+    if (vel > threshold) {
+        int compressed = threshold + static_cast<int>((vel - threshold) / ratio);
+        return juce::jlimit(1, 127, compressed);
     }
     
-    return juce::jlimit(1, 127, compressed);
+    return vel;
 }
 
 int RubatoProcessor::getBandIndex(int pitch)
@@ -303,6 +303,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int velocityShapeIndex = apvts.getRawParameterValue("velocityShape")->load();
     const int voicing = apvts.getRawParameterValue("voicing")->load();
     const int humanize = apvts.getRawParameterValue("humanize")->load();
+    const int floor = apvts.getRawParameterValue("floor")->load();
     const int compThreshold = apvts.getRawParameterValue("compThreshold")->load();
     const float compRatio = apvts.getRawParameterValue("compRatio")->load();
     const int chordSpreadMs = apvts.getRawParameterValue("chordSpreadMs")->load();
@@ -522,6 +523,11 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 
                 int totalJitter = static_cast<int>(chordHumanizeOffset * phraseCurveScale * velScale) + perNoteJitter;
                 vel += totalJitter;
+                vel = juce::jlimit(1, 127, vel);
+            }
+            
+            if (floor > 1 && vel < floor) {
+                vel = floor - (floor - vel) / 2;
                 vel = juce::jlimit(1, 127, vel);
             }
             

@@ -68,6 +68,10 @@ private:
     juce::Slider humanizeSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;
     
+    juce::Label floorLabel;
+    juce::Slider floorSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> floorAttachment;
+    
     juce::Label compThresholdLabel;
     juce::Slider compThresholdSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compThresholdAttachment;

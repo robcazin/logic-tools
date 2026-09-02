@@ -2,12 +2,14 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
+#include <deque>
+#include <map>
 
-class CcMeterProcessor : public juce::AudioProcessor
+class RubatoProcessor : public juce::AudioProcessor
 {
 public:
-    CcMeterProcessor();
-    ~CcMeterProcessor() override = default;
+    RubatoProcessor();
+    ~RubatoProcessor() override = default;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -19,7 +21,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "ccMeter"; }
+    const juce::String getName() const override { return "Rubato"; }
 
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return true; }
@@ -37,13 +39,48 @@ public:
 
     juce::AudioProcessorValueTreeState& getApvts() { return apvts; }
     
-    int getLastCcValue() const { return lastCcValue.load(std::memory_order_relaxed); }
+    int getPhraseCurveValue() const { return phraseCurveValue.load(std::memory_order_relaxed); }
+    
+    struct BandVelocity {
+        std::atomic<int> value{0};
+    };
+    std::array<BandVelocity, 16> inputBandVelocities;
+    std::array<BandVelocity, 16> outputBandVelocities;
 
 private:
     juce::AudioProcessorValueTreeState apvts;
-    std::atomic<int> lastCcValue{0};
-
+    std::atomic<int> phraseCurveValue{0};
+    
+    double currentSampleRate = 44100.0;
+    
+    struct DelayedNote {
+        juce::MidiMessage message;
+        int targetSample;
+    };
+    std::deque<DelayedNote> delayQueue;
+    
+    struct NoteOffDelay {
+        int delayMs;
+    };
+    std::map<int, std::deque<int>> noteOffDelays;
+    
+    double anchorBeat = 1.0;
+    bool transportWarm = false;
+    int warmBlocks = 0;
+    std::map<int, int> lastCCValues;
+    
+    std::array<int, 16> inputBandPeaks;
+    std::array<int, 16> outputBandPeaks;
+    std::array<int, 16> inputBandDecay;
+    std::array<int, 16> outputBandDecay;
+    
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    
+    float calculatePhraseFraction(juce::AudioPlayHead::PositionInfo& pos);
+    float curveValue(float t, int shapeIndex);
+    void applyLife(float t, float& amount);
+    int compressVelocity(int vel, int threshold, float ratio);
+    int getBandIndex(int pitch);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CcMeterProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RubatoProcessor)
 };

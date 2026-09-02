@@ -3,25 +3,82 @@
 #include "PluginProcessor.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 
-class CcMeterEditor : public juce::AudioProcessorEditor, private juce::Timer
+class RubatoEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    explicit CcMeterEditor(CcMeterProcessor&);
-    ~CcMeterEditor() override;
+    explicit RubatoEditor(RubatoProcessor&);
+    ~RubatoEditor() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
     void timerCallback() override;
+    void drawPhraseMeter(juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawControlGroup(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& title);
 
-    CcMeterProcessor& processor;
+    RubatoProcessor& processor;
     
-    juce::Label ccNumberLabel;
-    juce::ComboBox ccNumberBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> ccNumberAttachment;
+    juce::ToggleButton inOutToggle;
+    bool showInput = true;
     
-    int displayValue = 0;
+    juce::Label amountLabel;
+    juce::Slider amountSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
+    
+    juce::Label shapeLabel;
+    juce::ComboBox shapeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> shapeAttachment;
+    
+    juce::Label phraseLengthLabel;
+    juce::Slider phraseLengthSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> phraseLengthAttachment;
+    
+    juce::Label triggerModeLabel;
+    juce::ComboBox triggerModeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> triggerModeAttachment;
+    
+    juce::TextButton reAnchorButton;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reAnchorAttachment;
+    
+    juce::Label chordSpreadLabel;
+    juce::Slider chordSpreadSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> chordSpreadAttachment;
+    
+    juce::Label velocityBoostLabel;
+    juce::Slider velocityBoostSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> velocityBoostAttachment;
+    
+    juce::Label velocityReplaceLabel;
+    juce::Slider velocityReplaceSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> velocityReplaceAttachment;
+    
+    juce::Label velocityShapeLabel;
+    juce::ComboBox velocityShapeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityShapeAttachment;
+    
+    juce::Label compThresholdLabel;
+    juce::Slider compThresholdSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compThresholdAttachment;
+    
+    juce::Label compRatioLabel;
+    juce::Slider compRatioSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compRatioAttachment;
+    
+    juce::Label pulseDepthLabel;
+    juce::Slider pulseDepthSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseDepthAttachment;
+    
+    juce::Label driftDepthLabel;
+    juce::Slider driftDepthSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> driftDepthAttachment;
+    
+    juce::ToggleButton xlModeToggle;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> xlModeAttachment;
+    
+    int displayPhraseCurve = 0;
+    std::array<int, 16> displayBandVelocities;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CcMeterEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RubatoEditor)
 };

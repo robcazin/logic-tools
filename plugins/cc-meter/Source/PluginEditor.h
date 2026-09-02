@@ -110,7 +110,7 @@ private:
         int ageMs;
     };
     std::vector<DisplayNote> displayNotes;
-    int64_t lastNoteTimestamp = 0;
+    int lastSeenWritePos = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RubatoEditor)
 };

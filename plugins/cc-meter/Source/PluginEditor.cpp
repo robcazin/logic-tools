@@ -247,36 +247,38 @@ void RubatoEditor::timerCallback()
         }
     }
     
-    int ringCount = 0;
-    auto noteRing = processor.getNoteRing(ringCount);
+    int currentWritePos = processor.getNoteRingWritePos();
+    auto noteRing = processor.getNoteRing(currentWritePos);
     
-    for (int i = 0; i < ringCount && i < RubatoProcessor::NOTE_RING_SIZE; ++i) {
-        const auto& note = noteRing[i];
-        if (note.timestamp > lastNoteTimestamp) {
-            displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
-            needsRepaint = true;
-        }
+    int newNoteCount = (currentWritePos - lastSeenWritePos + RubatoProcessor::NOTE_RING_SIZE) % RubatoProcessor::NOTE_RING_SIZE;
+    
+    for (int i = 0; i < newNoteCount; ++i) {
+        int idx = (lastSeenWritePos + i) % RubatoProcessor::NOTE_RING_SIZE;
+        const auto& note = noteRing[idx];
+        displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
     }
     
-    if (ringCount > 0) {
-        lastNoteTimestamp = noteRing[(ringCount - 1) % RubatoProcessor::NOTE_RING_SIZE].timestamp;
-    }
+    lastSeenWritePos = currentWritePos;
     
     const int msPerFrame = 33;
     const int fadeMs = 1800;
+    const int maxDisplayNotes = 512;
     
     auto it = displayNotes.begin();
     while (it != displayNotes.end()) {
         it->ageMs += msPerFrame;
         if (it->ageMs > fadeMs) {
             it = displayNotes.erase(it);
-            needsRepaint = true;
         } else {
             ++it;
         }
     }
     
-    if (needsRepaint)
+    while (displayNotes.size() > maxDisplayNotes) {
+        displayNotes.erase(displayNotes.begin());
+    }
+    
+    if (!displayNotes.empty() || needsRepaint)
         repaint();
 }
 

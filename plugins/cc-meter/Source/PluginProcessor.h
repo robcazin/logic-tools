@@ -61,6 +61,7 @@ public:
     std::atomic<int> noteRingWritePos{0};
     
     std::array<NoteEvent, NOTE_RING_SIZE> getNoteRing(int& count);
+    int getNoteRingWritePos() const { return noteRingWritePos.load(std::memory_order_relaxed); }
 
 private:
     juce::AudioProcessorValueTreeState apvts;

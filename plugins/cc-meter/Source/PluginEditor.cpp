@@ -328,37 +328,11 @@ void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds
 
 void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-    const int bandWidth = bounds.getWidth() / 16;
-    const int spacing = 2;
+    g.setColour(juce::Colour(0xff2a2a2a));
+    g.fillRect(bounds);
     
-    for (int i = 0; i < 16; ++i)
-    {
-        int x = bounds.getX() + i * bandWidth;
-        int bandDisplayWidth = bandWidth - spacing;
-        
-        juce::Rectangle<int> bandBounds(x, bounds.getY(), bandDisplayWidth, bounds.getHeight());
-        
-        g.setColour(juce::Colour(0xff2a2a2a));
-        g.fillRect(bandBounds);
-        
-        g.setColour(juce::Colour(0xff404040));
-        g.drawRect(bandBounds, 1);
-        
-        const float fillHeight = (displayBandVelocities[i] / 127.0f) * (bandBounds.getHeight() - 4);
-        const float fillY = bandBounds.getBottom() - 2 - fillHeight;
-        
-        juce::Rectangle<float> fillRect(
-            static_cast<float>(bandBounds.getX() + 2),
-            fillY,
-            static_cast<float>(bandBounds.getWidth() - 4),
-            fillHeight
-        );
-        
-        fillRect = fillRect.constrainedWithin(bandBounds.toFloat().reduced(2.0f));
-        
-        g.setColour(juce::Colour(0x4000bfff));
-        g.fillRect(fillRect);
-    }
+    g.setColour(juce::Colour(0xff404040));
+    g.drawRect(bounds, 1);
     
     const int minPitch = 12;
     const int maxPitch = 107;

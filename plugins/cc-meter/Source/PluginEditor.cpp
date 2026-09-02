@@ -175,32 +175,44 @@ void RubatoEditor::drawPhraseMeter(juce::Graphics& g, juce::Rectangle<int> bound
     g.fillRect(bounds);
     
     g.setColour(juce::Colour(0xff404040));
-    g.drawRect(bounds, 2);
+    g.drawRect(bounds, 1);
     
-    const float fillWidth = (displayPhraseCurve / 127.0f) * (bounds.getWidth() - 4);
+    const float fillWidth = (displayPhraseCurve / 127.0f) * (bounds.getWidth() - 2);
     juce::Rectangle<float> fillRect(
-        static_cast<float>(bounds.getX() + 2),
-        static_cast<float>(bounds.getY() + 2),
+        static_cast<float>(bounds.getX() + 1),
+        static_cast<float>(bounds.getY() + 1),
         fillWidth,
-        static_cast<float>(bounds.getHeight() - 4)
+        static_cast<float>(bounds.getHeight() - 2)
     );
     
-    fillRect = fillRect.constrainedWithin(bounds.toFloat().reduced(2.0f));
+    fillRect = fillRect.constrainedWithin(bounds.toFloat().reduced(1.0f));
     
-    juce::ColourGradient gradient(
-        juce::Colour(0xff00ff00), fillRect.getX(), fillRect.getCentreY(),
-        juce::Colour(0xffffff00), fillRect.getRight(), fillRect.getCentreY(),
-        false);
-    gradient.addColour(0.75, juce::Colour(0xffff0000));
-    
-    g.setGradientFill(gradient);
+    g.setColour(juce::Colour(0xff9370db));
     g.fillRect(fillRect);
+}
+
+void RubatoEditor::drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
+{
+    g.setColour(juce::Colour(0xff2a2a2a));
+    g.fillRect(bounds);
     
-    g.setColour(juce::Colours::lightgrey);
-    g.setFont(14.0f);
-    g.drawText("Phrase: " + juce::String(displayPhraseCurve), 
-               bounds.withTrimmedTop(bounds.getHeight() + 5), 
-               juce::Justification::centredLeft);
+    g.setColour(juce::Colour(0xff404040));
+    g.drawRect(bounds, 1);
+    
+    const float fillHeight = (displayPhraseCurve / 127.0f) * (bounds.getHeight() - 2);
+    const float fillY = bounds.getBottom() - 1 - fillHeight;
+    
+    juce::Rectangle<float> fillRect(
+        static_cast<float>(bounds.getX() + 1),
+        fillY,
+        static_cast<float>(bounds.getWidth() - 2),
+        fillHeight
+    );
+    
+    fillRect = fillRect.constrainedWithin(bounds.toFloat().reduced(1.0f));
+    
+    g.setColour(juce::Colour(0xff9370db));
+    g.fillRect(fillRect);
 }
 
 void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bounds)
@@ -233,13 +245,7 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
         
         fillRect = fillRect.constrainedWithin(bandBounds.toFloat().reduced(2.0f));
         
-        juce::ColourGradient gradient(
-            juce::Colour(0xff00ff00), fillRect.getCentreX(), fillRect.getBottom(),
-            juce::Colour(0xffffff00), fillRect.getCentreX(), fillRect.getCentreY(),
-            false);
-        gradient.addColour(0.0, juce::Colour(0xffff0000));
-        
-        g.setGradientFill(gradient);
+        g.setColour(juce::Colour(0xff00bfff));
         g.fillRect(fillRect);
     }
 }
@@ -258,10 +264,13 @@ void RubatoEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff1a1a1a));
     
-    juce::Rectangle<int> phraseMeterBounds(20, 20, 400, 30);
+    juce::Rectangle<int> phraseMeterBounds(20, 20, 400, 8);
     drawPhraseMeter(g, phraseMeterBounds);
     
-    juce::Rectangle<int> keyboardBandsBounds(20, 80, 760, 120);
+    juce::Rectangle<int> shapeMeterBounds(20, 80, 30, 120);
+    drawShapeMeter(g, shapeMeterBounds);
+    
+    juce::Rectangle<int> keyboardBandsBounds(60, 80, 720, 120);
     drawKeyboardBands(g, keyboardBandsBounds);
     
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 320);
@@ -276,7 +285,7 @@ void RubatoEditor::paint(juce::Graphics& g)
 
 void RubatoEditor::resized()
 {
-    inOutToggle.setBounds(450, 25, 80, 20);
+    inOutToggle.setBounds(60, 210, 80, 20);
     
     int timeX = 30;
     int timeY = 265;

@@ -15,6 +15,7 @@ public:
 private:
     void timerCallback() override;
     void drawPhraseMeter(juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawShapeMeter(juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawControlGroup(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& title);
 

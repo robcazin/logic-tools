@@ -250,15 +250,25 @@ void RubatoEditor::timerCallback()
     int currentWritePos = processor.getNoteRingWritePos();
     auto noteRing = processor.getNoteRing(currentWritePos);
     
-    int newNoteCount = (currentWritePos - lastSeenWritePos + RubatoProcessor::NOTE_RING_SIZE) % RubatoProcessor::NOTE_RING_SIZE;
-    
-    for (int i = 0; i < newNoteCount; ++i) {
-        int idx = (lastSeenWritePos + i) % RubatoProcessor::NOTE_RING_SIZE;
-        const auto& note = noteRing[idx];
-        displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
+    if (lastSeenWritePos < 0) {
+        lastSeenWritePos = currentWritePos;
+    } else {
+        int delta = currentWritePos - lastSeenWritePos;
+        if (delta < 0)
+            delta += RubatoProcessor::NOTE_RING_SIZE * 2;
+        if (delta > RubatoProcessor::NOTE_RING_SIZE)
+            delta = RubatoProcessor::NOTE_RING_SIZE;
+        
+        for (int i = 0; i < delta; ++i) {
+            int idx = (lastSeenWritePos + i) % RubatoProcessor::NOTE_RING_SIZE;
+            const auto& note = noteRing[idx];
+            if (note.timestamp != 0) {
+                displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
+            }
+        }
+        
+        lastSeenWritePos = currentWritePos;
     }
-    
-    lastSeenWritePos = currentWritePos;
     
     const int msPerFrame = 33;
     const int fadeMs = 1800;

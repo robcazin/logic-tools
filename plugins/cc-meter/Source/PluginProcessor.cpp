@@ -375,33 +375,8 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 inputBandPeaks[bandIndex] = inputVel;
             inputBandVelocities[bandIndex].value.store(inputBandPeaks[bandIndex], std::memory_order_relaxed);
             
-            float spreadMs = 0.0f;
-            if (chordSpreadMs > 0) {
-                spreadMs = juce::Random::getSystemRandom().nextFloat() * chordSpreadMs;
-            }
-            
-            if (phraseFrac < 0.0f) {
-                velocity = compressVelocity(velocity, compThreshold, compRatio);
-                
-                int delaySamples = static_cast<int>((spreadMs / 1000.0) * currentSampleRate);
-                int64_t targetSample = absoluteSampleClock + samplePos + delaySamples;
-                DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)velocity), targetSample, pitch, channel};
-                delayQueue.push_back(delayed);
-                
-                int key = channel * 128 + pitch;
-                activeDelayedNotes.insert(key);
-                noteOffDelays[key].push_back(static_cast<int>(spreadMs));
-                
-                int writePos = noteRingWritePos.load(std::memory_order_relaxed);
-                noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(pitch), static_cast<uint8_t>(inputVel), static_cast<uint8_t>(velocity), absoluteSampleClock};
-                noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
-            } else {
+            if (phraseFrac >= 0.0f) {
                 float curveVal = curveValue(phraseFrac, shapeIndex);
-                float timingAmount = amountMs * curveVal;
-                applyLife(pos, timingAmount);
-                
-                float totalDelayMs = timingAmount + spreadMs;
-                
                 float velCurveVal = curveValue(phraseFrac, velocityShapeIndex);
                 
                 int newVelocity = velocity;
@@ -417,33 +392,30 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 
                 newVelocity = juce::jlimit(1, 127, newVelocity);
                 
-                if (humanize > 0) {
-                    float humanizeScale = humanize / 100.0f;
-                    float phraseCurveScale = 0.4f + 0.6f * phraseCurveVal;
-                    float velScale = 0.35f + 0.65f * (newVelocity / 127.0f);
-                    
-                    juce::Random noteRandom(static_cast<int64_t>(absoluteSampleClock + pitch));
-                    int perNoteJitter = static_cast<int>((noteRandom.nextFloat() * 2.0f - 1.0f) * 2.0f);
-                    
-                    int totalJitter = static_cast<int>(chordHumanizeOffset * phraseCurveScale * velScale) + perNoteJitter;
-                    newVelocity += totalJitter;
-                    newVelocity = juce::jlimit(1, 127, newVelocity);
+                PendingNote pending;
+                pending.pitch = pitch;
+                pending.channel = channel;
+                pending.velocity = newVelocity;
+                pending.inputVel = inputVel;
+                pending.samplePos = samplePos;
+                pending.arrivalSample = absoluteSampleClock + samplePos;
+                clusterBuffer.push_back(pending);
+            } else {
+                float spreadMs = 0.0f;
+                if (chordSpreadMs > 0) {
+                    spreadMs = juce::Random::getSystemRandom().nextFloat() * chordSpreadMs;
                 }
                 
-                newVelocity = compressVelocity(newVelocity, compThreshold, compRatio);
+                int newVelocity = compressVelocity(velocity, compThreshold, compRatio);
                 
-                if (outputBandPeaks[bandIndex] < newVelocity)
-                    outputBandPeaks[bandIndex] = newVelocity;
-                outputBandVelocities[bandIndex].value.store(outputBandPeaks[bandIndex], std::memory_order_relaxed);
-                
-                int delaySamples = static_cast<int>((totalDelayMs / 1000.0) * currentSampleRate);
+                int delaySamples = static_cast<int>((spreadMs / 1000.0) * currentSampleRate);
                 int64_t targetSample = absoluteSampleClock + samplePos + delaySamples;
                 DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)newVelocity), targetSample, pitch, channel};
                 delayQueue.push_back(delayed);
                 
                 int key = channel * 128 + pitch;
                 activeDelayedNotes.insert(key);
-                noteOffDelays[key].push_back(static_cast<int>(totalDelayMs));
+                noteOffDelays[key].push_back(static_cast<int>(spreadMs));
                 
                 int writePos = noteRingWritePos.load(std::memory_order_relaxed);
                 noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(pitch), static_cast<uint8_t>(inputVel), static_cast<uint8_t>(newVelocity), absoluteSampleClock};
@@ -472,6 +444,119 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         {
             processedMidi.addEvent(msg, samplePos);
         }
+    }
+    
+    if (!clusterBuffer.empty()) {
+        std::sort(clusterBuffer.begin(), clusterBuffer.end(), 
+            [](const PendingNote& a, const PendingNote& b) { return a.pitch < b.pitch; });
+        
+        int splitPoint = -1;
+        int maxGap = 0;
+        for (size_t i = 1; i < clusterBuffer.size(); ++i) {
+            int gap = clusterBuffer[i].pitch - clusterBuffer[i-1].pitch;
+            if (gap >= 5 && gap > maxGap) {
+                maxGap = gap;
+                splitPoint = static_cast<int>(i);
+            }
+        }
+        
+        bool hasTwoHands = (splitPoint > 0 && splitPoint < static_cast<int>(clusterBuffer.size()));
+        
+        for (size_t i = 0; i < clusterBuffer.size(); ++i) {
+            auto& note = clusterBuffer[i];
+            int vel = note.velocity;
+            
+            if (voicing > 0) {
+                float voicingScale = voicing / 100.0f * 8.0f;
+                
+                bool isBass = (i == 0 && clusterBuffer.size() > 1 && 
+                               (clusterBuffer[1].pitch - note.pitch) >= 7);
+                
+                if (!isBass) {
+                    int handStart, handEnd;
+                    bool isLH = false;
+                    
+                    if (hasTwoHands) {
+                        if (static_cast<int>(i) < splitPoint) {
+                            handStart = 0;
+                            handEnd = splitPoint - 1;
+                            isLH = true;
+                        } else {
+                            handStart = splitPoint;
+                            handEnd = static_cast<int>(clusterBuffer.size()) - 1;
+                            isLH = false;
+                        }
+                    } else {
+                        handStart = 0;
+                        handEnd = static_cast<int>(clusterBuffer.size()) - 1;
+                        isLH = (clusterBuffer[handEnd].pitch < 60);
+                    }
+                    
+                    int handSize = handEnd - handStart + 1;
+                    if (handSize > 1) {
+                        int posInHand = static_cast<int>(i) - handStart;
+                        float t = posInHand / static_cast<float>(handSize - 1);
+                        
+                        float cosVal = 0.5f * (1.0f - std::cos(juce::MathConstants<float>::pi * t));
+                        
+                        float tilt = isLH ? t : (1.0f - t);
+                        float curve = cosVal + 0.3f * tilt;
+                        
+                        int voicingAdjust = static_cast<int>((curve - 0.65f) * voicingScale);
+                        vel += voicingAdjust;
+                    }
+                } else {
+                    vel += static_cast<int>(voicingScale * 0.3f);
+                }
+            }
+            
+            vel = juce::jlimit(1, 127, vel);
+            
+            if (humanize > 0) {
+                float humanizeScale = humanize / 100.0f;
+                float phraseCurveScale = 0.4f + 0.6f * phraseCurveVal;
+                float velScale = 0.35f + 0.65f * (vel / 127.0f);
+                
+                juce::Random noteRandom(static_cast<int64_t>(absoluteSampleClock + note.pitch));
+                int perNoteJitter = static_cast<int>((noteRandom.nextFloat() * 2.0f - 1.0f) * 2.0f);
+                
+                int totalJitter = static_cast<int>(chordHumanizeOffset * phraseCurveScale * velScale) + perNoteJitter;
+                vel += totalJitter;
+                vel = juce::jlimit(1, 127, vel);
+            }
+            
+            vel = compressVelocity(vel, compThreshold, compRatio);
+            
+            int bandIndex = getBandIndex(note.pitch);
+            if (outputBandPeaks[bandIndex] < vel)
+                outputBandPeaks[bandIndex] = vel;
+            outputBandVelocities[bandIndex].value.store(outputBandPeaks[bandIndex], std::memory_order_relaxed);
+            
+            float curveVal = curveValue(phraseFrac, shapeIndex);
+            float timingAmount = amountMs * curveVal;
+            applyLife(pos, timingAmount);
+            
+            float spreadMs = 0.0f;
+            if (chordSpreadMs > 0) {
+                spreadMs = juce::Random::getSystemRandom().nextFloat() * chordSpreadMs;
+            }
+            float totalDelayMs = timingAmount + spreadMs;
+            
+            int delaySamples = static_cast<int>((totalDelayMs / 1000.0) * currentSampleRate);
+            int64_t targetSample = note.arrivalSample + delaySamples;
+            DelayedNote delayed{juce::MidiMessage::noteOn(note.channel, note.pitch, (juce::uint8)vel), targetSample, note.pitch, note.channel};
+            delayQueue.push_back(delayed);
+            
+            int key = note.channel * 128 + note.pitch;
+            activeDelayedNotes.insert(key);
+            noteOffDelays[key].push_back(static_cast<int>(totalDelayMs));
+            
+            int writePos = noteRingWritePos.load(std::memory_order_relaxed);
+            noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(note.pitch), static_cast<uint8_t>(note.inputVel), static_cast<uint8_t>(vel), absoluteSampleClock};
+            noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
+        }
+        
+        clusterBuffer.clear();
     }
     
     auto it = delayQueue.begin();

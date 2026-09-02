@@ -382,7 +382,7 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
 void RubatoEditor::drawControlGroup(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& title)
 {
     g.setColour(juce::Colour(0xff303030));
-    g.drawRect(bounds, 1);
+    g.drawRect(bounds, 2);
     
     g.setColour(juce::Colours::lightgrey);
     g.setFont(12.0f);
@@ -418,7 +418,7 @@ void RubatoEditor::paint(juce::Graphics& g)
     
     juce::Rectangle<int> compGroupBounds(290, 729, 220, 130);
     g.setColour(juce::Colour(196, 138, 58));
-    g.drawRect(compGroupBounds, 1);
+    g.drawRect(compGroupBounds, 2);
     g.setFont(12.0f);
     g.drawText("Comp", compGroupBounds.withHeight(20), juce::Justification::centred);
     
@@ -426,7 +426,10 @@ void RubatoEditor::paint(juce::Graphics& g)
     drawControlGroup(g, pulseGroupBounds, "Pulse / Drift");
     
     juce::Rectangle<int> squishGroupBounds(540, 618, 240, 110);
-    drawControlGroup(g, squishGroupBounds, "Squish");
+    g.setColour(juce::Colour(0xff3ec8d8));
+    g.drawRect(squishGroupBounds, 2);
+    g.setFont(12.0f);
+    g.drawText("Squish", squishGroupBounds.withHeight(20), juce::Justification::centred);
 }
 
 void RubatoEditor::resized()

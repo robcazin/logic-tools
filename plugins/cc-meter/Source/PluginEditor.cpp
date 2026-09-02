@@ -351,6 +351,28 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
     g.setColour(juce::Colour(0xff404040));
     g.drawRect(bounds, 1);
     
+    int floor = processor.getApvts().getRawParameterValue("floor")->load();
+    int ceiling = processor.getApvts().getRawParameterValue("compThreshold")->load();
+    
+    float floorY = bounds.getBottom() - (floor / 127.0f) * bounds.getHeight();
+    float ceilingY = bounds.getBottom() - (ceiling / 127.0f) * bounds.getHeight();
+    
+    if (ceilingY < floorY) {
+        g.setColour(juce::Colour(0x18ffffff));
+        g.fillRect(juce::Rectangle<float>(
+            static_cast<float>(bounds.getX()),
+            ceilingY,
+            static_cast<float>(bounds.getWidth()),
+            floorY - ceilingY
+        ));
+    }
+    
+    g.setColour(juce::Colour(0x80ffffff));
+    g.drawHorizontalLine(static_cast<int>(floorY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
+    
+    g.setColour(juce::Colour(196, 138, 58, 128));
+    g.drawHorizontalLine(static_cast<int>(ceilingY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
+    
     const int minPitch = 12;
     const int maxPitch = 107;
     const int pitchRange = maxPitch - minPitch;

@@ -381,10 +381,14 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 float curveVal = curveValue(phraseFrac, shapeIndex);
                 float velCurveVal = curveValue(phraseFrac, velocityShapeIndex);
                 
+                int lo = juce::jlimit(1, 127, floor);
+                int hi = juce::jlimit(1, 127, compThreshold);
+                if (hi < lo) hi = lo;
+                
                 int newVelocity = velocity;
                 if (velocityReplace > 0) {
-                    int replaceVel = 1 + static_cast<int>(velCurveVal * 126.0f);
-                    newVelocity = static_cast<int>(velocity * (1.0f - velocityReplace / 100.0f) + replaceVel * (velocityReplace / 100.0f));
+                    int shaped = lo + static_cast<int>(std::round(velCurveVal * static_cast<float>(hi - lo)));
+                    newVelocity = static_cast<int>(velocity * (1.0f - velocityReplace / 100.0f) + shaped * (velocityReplace / 100.0f));
                 }
                 
                 if (velocityBoost != 0) {
@@ -525,15 +529,6 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 int totalJitter = static_cast<int>(chordHumanizeOffset * phraseCurveScale * velScale) + perNoteJitter;
                 vel += totalJitter;
                 vel = juce::jlimit(1, 127, vel);
-            }
-            
-            if (floor > 1) {
-                float C = (floor + 127) / 2.0f;
-                if (vel < C) {
-                    float lift = (floor - 1) * (1.0f - (vel - 1) / (C - 1.0f));
-                    vel = static_cast<int>(std::round(vel + lift));
-                    vel = juce::jlimit(1, 127, vel);
-                }
             }
             
             vel = compressVelocity(vel, compThreshold, compRatio);

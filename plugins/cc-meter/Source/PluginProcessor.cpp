@@ -527,11 +527,12 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             }
             
             if (floor > 1) {
-                float t = (vel - 1) / 126.0f;
-                t = juce::jlimit(0.0f, 1.0f, t);
-                float falloff = (1.0f - t) * (1.0f - t);
-                vel = static_cast<int>(std::round(vel + (floor - 1) * falloff));
-                vel = juce::jlimit(1, 127, vel);
+                float C = (floor + 127) / 2.0f;
+                if (vel < C) {
+                    float lift = (floor - 1) * (1.0f - (vel - 1) / (C - 1.0f));
+                    vel = static_cast<int>(std::round(vel + lift));
+                    vel = juce::jlimit(1, 127, vel);
+                }
             }
             
             vel = compressVelocity(vel, compThreshold, compRatio);

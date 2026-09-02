@@ -21,7 +21,8 @@ private:
 
     RubatoProcessor& processor;
     
-    juce::ToggleButton inOutToggle;
+    juce::TextButton preButton;
+    juce::TextButton postButton;
     bool showInput = true;
     
     juce::Label amountLabel;
@@ -79,6 +80,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> xlModeAttachment;
     
     int displayPhraseCurve = 0;
+    int displayTimingIntensity = 0;
     std::array<int, 16> displayBandVelocities;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RubatoEditor)

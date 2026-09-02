@@ -370,7 +370,7 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
     g.setColour(juce::Colour(0x80ffffff));
     g.drawHorizontalLine(static_cast<int>(floorY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
     
-    g.setColour(juce::Colour(196, 138, 58, 128));
+    g.setColour(juce::Colour(0x80c48a3a));
     g.drawHorizontalLine(static_cast<int>(ceilingY), static_cast<float>(bounds.getX()), static_cast<float>(bounds.getRight()));
     
     const int minPitch = 12;

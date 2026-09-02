@@ -61,6 +61,20 @@ RubatoProcessor::RubatoProcessor()
     absoluteSampleClock = 0;
     lastPpqPosition = -1.0;
     wasPlaying = false;
+    
+    for (auto& note : noteRing) {
+        note.pitch = 0;
+        note.inputVel = 0;
+        note.outputVel = 0;
+        note.timestamp = 0;
+    }
+}
+
+std::array<RubatoProcessor::NoteEvent, RubatoProcessor::NOTE_RING_SIZE> RubatoProcessor::getNoteRing(int& count)
+{
+    count = noteRingWritePos.load(std::memory_order_relaxed);
+    if (count > NOTE_RING_SIZE) count = NOTE_RING_SIZE;
+    return noteRing;
 }
 
 void RubatoProcessor::prepareToPlay(double sampleRate, int)
@@ -361,6 +375,10 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 int key = channel * 128 + pitch;
                 activeDelayedNotes.insert(key);
                 noteOffDelays[key].push_back(static_cast<int>(spreadMs));
+                
+                int writePos = noteRingWritePos.load(std::memory_order_relaxed);
+                noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(pitch), static_cast<uint8_t>(inputVel), static_cast<uint8_t>(velocity), absoluteSampleClock};
+                noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
             } else {
                 float curveVal = curveValue(phraseFrac, shapeIndex);
                 float timingAmount = amountMs * curveVal;
@@ -396,6 +414,10 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 int key = channel * 128 + pitch;
                 activeDelayedNotes.insert(key);
                 noteOffDelays[key].push_back(static_cast<int>(totalDelayMs));
+                
+                int writePos = noteRingWritePos.load(std::memory_order_relaxed);
+                noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(pitch), static_cast<uint8_t>(inputVel), static_cast<uint8_t>(newVelocity), absoluteSampleClock};
+                noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
             }
         }
         else if (msg.isNoteOff())

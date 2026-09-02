@@ -90,6 +90,15 @@ private:
     int displayPhraseCurve = 0;
     int displayTimingIntensity = 0;
     std::array<int, 16> displayBandVelocities;
+    
+    struct DisplayNote {
+        uint8_t pitch;
+        uint8_t inputVel;
+        uint8_t outputVel;
+        int ageMs;
+    };
+    std::vector<DisplayNote> displayNotes;
+    int64_t lastNoteTimestamp = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RubatoEditor)
 };

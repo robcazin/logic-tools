@@ -220,6 +220,35 @@ void RubatoEditor::timerCallback()
         }
     }
     
+    int ringCount = 0;
+    auto noteRing = processor.getNoteRing(ringCount);
+    
+    for (int i = 0; i < ringCount && i < RubatoProcessor::NOTE_RING_SIZE; ++i) {
+        const auto& note = noteRing[i];
+        if (note.timestamp > lastNoteTimestamp) {
+            displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
+            needsRepaint = true;
+        }
+    }
+    
+    if (ringCount > 0) {
+        lastNoteTimestamp = noteRing[(ringCount - 1) % RubatoProcessor::NOTE_RING_SIZE].timestamp;
+    }
+    
+    const int msPerFrame = 33;
+    const int fadeMs = 1800;
+    
+    auto it = displayNotes.begin();
+    while (it != displayNotes.end()) {
+        it->ageMs += msPerFrame;
+        if (it->ageMs > fadeMs) {
+            it = displayNotes.erase(it);
+            needsRepaint = true;
+        } else {
+            ++it;
+        }
+    }
+    
     if (needsRepaint)
         repaint();
 }
@@ -300,8 +329,35 @@ void RubatoEditor::drawKeyboardBands(juce::Graphics& g, juce::Rectangle<int> bou
         
         fillRect = fillRect.constrainedWithin(bandBounds.toFloat().reduced(2.0f));
         
-        g.setColour(juce::Colour(0xff00bfff));
+        g.setColour(juce::Colour(0x4000bfff));
         g.fillRect(fillRect);
+    }
+    
+    const int minPitch = 12;
+    const int maxPitch = 107;
+    const int pitchRange = maxPitch - minPitch;
+    const int fadeMs = 1800;
+    
+    for (const auto& note : displayNotes) {
+        int pitch = juce::jlimit(minPitch, maxPitch, static_cast<int>(note.pitch));
+        
+        float pitchNorm = (pitch - minPitch) / static_cast<float>(pitchRange);
+        float x = bounds.getX() + pitchNorm * bounds.getWidth();
+        
+        int velocity = showInput ? note.inputVel : note.outputVel;
+        float velNorm = velocity / 127.0f;
+        float y = bounds.getBottom() - velNorm * bounds.getHeight();
+        
+        float alpha = 1.0f - (note.ageMs / static_cast<float>(fadeMs));
+        alpha = juce::jlimit(0.0f, 1.0f, alpha);
+        
+        juce::Colour lowColor(0xff7b2d8e);
+        juce::Colour highColor(0xffe0ffff);
+        juce::Colour noteColor = lowColor.interpolatedWith(highColor, pitchNorm);
+        noteColor = noteColor.withAlpha(alpha);
+        
+        g.setColour(noteColor);
+        g.fillEllipse(x - 3.0f, y - 3.0f, 6.0f, 6.0f);
     }
 }
 

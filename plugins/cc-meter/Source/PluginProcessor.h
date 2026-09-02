@@ -48,6 +48,19 @@ public:
     };
     std::array<BandVelocity, 16> inputBandVelocities;
     std::array<BandVelocity, 16> outputBandVelocities;
+    
+    struct NoteEvent {
+        uint8_t pitch;
+        uint8_t inputVel;
+        uint8_t outputVel;
+        int64_t timestamp;
+    };
+    
+    static constexpr int NOTE_RING_SIZE = 256;
+    std::array<NoteEvent, NOTE_RING_SIZE> noteRing;
+    std::atomic<int> noteRingWritePos{0};
+    
+    std::array<NoteEvent, NOTE_RING_SIZE> getNoteRing(int& count);
 
 private:
     juce::AudioProcessorValueTreeState apvts;

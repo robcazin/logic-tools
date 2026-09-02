@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 740);
+    setSize(800, 835);
     
     displayBandVelocities.fill(0);
     
@@ -117,6 +117,15 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     addAndMakeVisible(velocityShapeBox);
     velocityShapeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         processor.getApvts(), "velocityShape", velocityShapeBox);
+    
+    voicingLabel.setText("Voicing", juce::dontSendNotification);
+    voicingLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(voicingLabel);
+    voicingSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    voicingSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    addAndMakeVisible(voicingSlider);
+    voicingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        processor.getApvts(), "voicing", voicingSlider);
     
     humanizeLabel.setText("Humanize", juce::dontSendNotification);
     humanizeLabel.setJustificationType(juce::Justification::centredLeft);
@@ -404,7 +413,7 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 380);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 475);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 570);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
     juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 280);
@@ -462,6 +471,10 @@ void RubatoEditor::resized()
     velocityShapeBox.setBounds(velX + 110, velY + row, 100, 20);
     
     row += comboRowHeight;
+    voicingLabel.setBounds(velX, velY + row, 100, 20);
+    voicingSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    
+    row += sliderRowHeight;
     humanizeLabel.setBounds(velX, velY + row, 100, 20);
     humanizeSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     

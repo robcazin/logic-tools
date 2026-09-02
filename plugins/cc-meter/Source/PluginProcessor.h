@@ -81,6 +81,17 @@ private:
     std::deque<DelayedNote> delayQueue;
     std::set<int> activeDelayedNotes;
     
+    struct PendingNote {
+        int pitch;
+        int channel;
+        int velocity;
+        int inputVel;
+        int samplePos;
+        int64_t arrivalSample;
+    };
+    std::vector<PendingNote> clusterBuffer;
+    int64_t lastClusterFlushSample = 0;
+    
     struct NoteOffDelay {
         int delayMs;
     };

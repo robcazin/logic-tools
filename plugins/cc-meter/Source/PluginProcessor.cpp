@@ -28,6 +28,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         "velocityShape", "Velocity Shape", juce::StringArray{"Symmetric bell", "Early swell", "Late swell"}, 0));
     layout.add(std::make_unique<juce::AudioParameterInt>(
+        "voicing", "Voicing", 0, 100, 0));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
         "humanize", "Humanize", 0, 100, 0));
     layout.add(std::make_unique<juce::AudioParameterInt>(
         "compThreshold", "Comp Threshold", 1, 127, 127));
@@ -299,6 +301,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int velocityBoost = apvts.getRawParameterValue("velocityBoost")->load();
     const int velocityReplace = apvts.getRawParameterValue("velocityReplace")->load();
     const int velocityShapeIndex = apvts.getRawParameterValue("velocityShape")->load();
+    const int voicing = apvts.getRawParameterValue("voicing")->load();
     const int humanize = apvts.getRawParameterValue("humanize")->load();
     const int compThreshold = apvts.getRawParameterValue("compThreshold")->load();
     const float compRatio = apvts.getRawParameterValue("compRatio")->load();

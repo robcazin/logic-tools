@@ -60,6 +60,10 @@ private:
     juce::ComboBox velocityShapeBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> velocityShapeAttachment;
     
+    juce::Label voicingLabel;
+    juce::Slider voicingSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> voicingAttachment;
+    
     juce::Label humanizeLabel;
     juce::Slider humanizeSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> humanizeAttachment;

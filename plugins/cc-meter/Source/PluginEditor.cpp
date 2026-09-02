@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 855);
+    setSize(800, 895);
     
     displayBandVelocities.fill(0);
     
@@ -145,8 +145,8 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     floorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "floor", floorSlider);
     
-    compThresholdLabel.setText("Comp Threshold", juce::dontSendNotification);
-    compThresholdLabel.setJustificationType(juce::Justification::centredLeft);
+    compThresholdLabel.setText("Thresh", juce::dontSendNotification);
+    compThresholdLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(compThresholdLabel);
     compThresholdSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     compThresholdSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
@@ -154,8 +154,8 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     compThresholdAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "compThreshold", compThresholdSlider);
     
-    compRatioLabel.setText("Comp Ratio", juce::dontSendNotification);
-    compRatioLabel.setJustificationType(juce::Justification::centredLeft);
+    compRatioLabel.setText("Ratio", juce::dontSendNotification);
+    compRatioLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(compRatioLabel);
     compRatioSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     compRatioSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
@@ -413,10 +413,10 @@ void RubatoEditor::paint(juce::Graphics& g)
     juce::Rectangle<int> timeGroupBounds(20, 240, 240, 393);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 619);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 639);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
-    juce::Rectangle<int> compGroupBounds(290, 729, 220, 110);
+    juce::Rectangle<int> compGroupBounds(290, 729, 220, 130);
     g.setColour(juce::Colour(196, 138, 58));
     g.drawRect(compGroupBounds, 1);
     g.setFont(12.0f);
@@ -492,11 +492,11 @@ void RubatoEditor::resized()
     floorSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
     int compY = 754;
-    compThresholdLabel.setBounds(velX, compY, 90, 20);
-    compThresholdSlider.setBounds(velX, compY - 10, 80, 80);
+    compThresholdLabel.setBounds(velX, compY, 80, 20);
+    compThresholdSlider.setBounds(velX, compY + 14, 80, 80);
     
-    compRatioLabel.setBounds(velX + 110, compY, 90, 20);
-    compRatioSlider.setBounds(velX + 110, compY - 10, 80, 80);
+    compRatioLabel.setBounds(velX + 110, compY, 80, 20);
+    compRatioSlider.setBounds(velX + 110, compY + 14, 80, 80);
     
     int pulseX = 550;
     int pulseY = 265;

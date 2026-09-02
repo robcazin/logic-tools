@@ -60,7 +60,7 @@ public:
     std::array<NoteEvent, NOTE_RING_SIZE> noteRing;
     std::atomic<int> noteRingWritePos{0};
     
-    std::array<NoteEvent, NOTE_RING_SIZE> getNoteRing(int& count);
+    std::array<NoteEvent, NOTE_RING_SIZE> getNoteRing();
     int getNoteRingWritePos() const { return noteRingWritePos.load(std::memory_order_relaxed); }
 
 private:

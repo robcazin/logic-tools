@@ -247,27 +247,23 @@ void RubatoEditor::timerCallback()
         }
     }
     
-    int currentWritePos = processor.getNoteRingWritePos();
-    auto noteRing = processor.getNoteRing(currentWritePos);
+    uint32_t current = static_cast<uint32_t>(processor.getNoteRingWritePos());
     
     if (lastSeenWritePos < 0) {
-        lastSeenWritePos = currentWritePos;
+        lastSeenWritePos = static_cast<int>(current);
     } else {
-        int delta = currentWritePos - lastSeenWritePos;
-        if (delta < 0)
-            delta += RubatoProcessor::NOTE_RING_SIZE * 2;
+        uint32_t last = static_cast<uint32_t>(lastSeenWritePos);
+        uint32_t delta = current - last;
         if (delta > RubatoProcessor::NOTE_RING_SIZE)
             delta = RubatoProcessor::NOTE_RING_SIZE;
         
-        for (int i = 0; i < delta; ++i) {
-            int idx = (lastSeenWritePos + i) % RubatoProcessor::NOTE_RING_SIZE;
-            const auto& note = noteRing[idx];
-            if (note.timestamp != 0) {
-                displayNotes.push_back({note.pitch, note.inputVel, note.outputVel, 0});
-            }
+        auto ring = processor.getNoteRing();
+        for (uint32_t i = 0; i < delta; ++i) {
+            const auto& n = ring[(last + i) % RubatoProcessor::NOTE_RING_SIZE];
+            displayNotes.push_back({n.pitch, n.inputVel, n.outputVel, 0});
         }
         
-        lastSeenWritePos = currentWritePos;
+        lastSeenWritePos = static_cast<int>(current);
     }
     
     const int msPerFrame = 33;

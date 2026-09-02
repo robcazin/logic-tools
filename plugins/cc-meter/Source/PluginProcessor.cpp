@@ -76,10 +76,8 @@ RubatoProcessor::RubatoProcessor()
     }
 }
 
-std::array<RubatoProcessor::NoteEvent, RubatoProcessor::NOTE_RING_SIZE> RubatoProcessor::getNoteRing(int& count)
+std::array<RubatoProcessor::NoteEvent, RubatoProcessor::NOTE_RING_SIZE> RubatoProcessor::getNoteRing()
 {
-    count = noteRingWritePos.load(std::memory_order_relaxed);
-    if (count > NOTE_RING_SIZE) count = NOTE_RING_SIZE;
     return noteRing;
 }
 
@@ -420,7 +418,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 
                 int writePos = noteRingWritePos.load(std::memory_order_relaxed);
                 noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(pitch), static_cast<uint8_t>(inputVel), static_cast<uint8_t>(newVelocity), absoluteSampleClock};
-                noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
+                noteRingWritePos.store(writePos + 1, std::memory_order_relaxed);
             }
         }
         else if (msg.isNoteOff())
@@ -563,7 +561,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             
             int writePos = noteRingWritePos.load(std::memory_order_relaxed);
             noteRing[writePos % NOTE_RING_SIZE] = {static_cast<uint8_t>(note.pitch), static_cast<uint8_t>(note.inputVel), static_cast<uint8_t>(vel), absoluteSampleClock};
-            noteRingWritePos.store((writePos + 1) % (NOTE_RING_SIZE * 2), std::memory_order_relaxed);
+            noteRingWritePos.store(writePos + 1, std::memory_order_relaxed);
         }
         
         clusterBuffer.clear();

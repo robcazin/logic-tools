@@ -28,6 +28,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         "velocityShape", "Velocity Shape", juce::StringArray{"Symmetric bell", "Early swell", "Late swell"}, 0));
     layout.add(std::make_unique<juce::AudioParameterInt>(
+        "humanize", "Humanize", 0, 100, 0));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
         "compThreshold", "Comp Threshold", 1, 127, 127));
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         "compRatio", "Comp Ratio", 1.0f, 20.0f, 1.0f));
@@ -297,14 +299,17 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int velocityBoost = apvts.getRawParameterValue("velocityBoost")->load();
     const int velocityReplace = apvts.getRawParameterValue("velocityReplace")->load();
     const int velocityShapeIndex = apvts.getRawParameterValue("velocityShape")->load();
+    const int humanize = apvts.getRawParameterValue("humanize")->load();
     const int compThreshold = apvts.getRawParameterValue("compThreshold")->load();
     const float compRatio = apvts.getRawParameterValue("compRatio")->load();
     const int chordSpreadMs = apvts.getRawParameterValue("chordSpreadMs")->load();
     
     float phraseFrac = calculatePhraseFraction(pos);
+    float phraseCurveVal = 0.0f;
     
     if (phraseFrac >= 0.0f) {
         float curveVal = curveValue(phraseFrac, shapeIndex);
+        phraseCurveVal = curveVal;
         phraseCurveValue.store(static_cast<int>(curveVal * 127.0f), std::memory_order_relaxed);
         
         float timingAmount = amountMs * curveVal;
@@ -314,6 +319,14 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         phraseTimingIntensity.store(static_cast<int>(normalizedIntensity * 127.0f), std::memory_order_relaxed);
     } else {
         phraseTimingIntensity.store(0, std::memory_order_relaxed);
+    }
+    
+    juce::Random blockRandom(static_cast<int64_t>(absoluteSampleClock));
+    int chordHumanizeOffset = 0;
+    if (humanize > 0) {
+        float humanizeScale = humanize / 100.0f;
+        float maxJitter = 12.0f;
+        chordHumanizeOffset = static_cast<int>((blockRandom.nextFloat() * 2.0f - 1.0f) * maxJitter * humanizeScale);
     }
     
     juce::MidiBuffer processedMidi;
@@ -400,6 +413,20 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 }
                 
                 newVelocity = juce::jlimit(1, 127, newVelocity);
+                
+                if (humanize > 0) {
+                    float humanizeScale = humanize / 100.0f;
+                    float phraseCurveScale = 0.4f + 0.6f * phraseCurveVal;
+                    float velScale = 0.35f + 0.65f * (newVelocity / 127.0f);
+                    
+                    juce::Random noteRandom(static_cast<int64_t>(absoluteSampleClock + pitch));
+                    int perNoteJitter = static_cast<int>((noteRandom.nextFloat() * 2.0f - 1.0f) * 2.0f);
+                    
+                    int totalJitter = static_cast<int>(chordHumanizeOffset * phraseCurveScale * velScale) + perNoteJitter;
+                    newVelocity += totalJitter;
+                    newVelocity = juce::jlimit(1, 127, newVelocity);
+                }
+                
                 newVelocity = compressVelocity(newVelocity, compThreshold, compRatio);
                 
                 if (outputBandPeaks[bandIndex] < newVelocity)

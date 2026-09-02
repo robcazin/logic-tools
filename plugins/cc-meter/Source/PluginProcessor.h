@@ -4,6 +4,7 @@
 #include <atomic>
 #include <deque>
 #include <map>
+#include <set>
 
 class RubatoProcessor : public juce::AudioProcessor
 {
@@ -52,12 +53,18 @@ private:
     std::atomic<int> phraseCurveValue{0};
     
     double currentSampleRate = 44100.0;
+    int64_t absoluteSampleClock = 0;
+    double lastPpqPosition = -1.0;
+    bool wasPlaying = false;
     
     struct DelayedNote {
         juce::MidiMessage message;
-        int targetSample;
+        int64_t targetSample;
+        int noteNumber;
+        int channel;
     };
     std::deque<DelayedNote> delayQueue;
+    std::set<int> activeDelayedNotes;
     
     struct NoteOffDelay {
         int delayMs;

@@ -53,6 +53,10 @@ RubatoProcessor::RubatoProcessor()
     outputBandPeaks.fill(0);
     inputBandDecay.fill(0);
     outputBandDecay.fill(0);
+    
+    absoluteSampleClock = 0;
+    lastPpqPosition = -1.0;
+    wasPlaying = false;
 }
 
 void RubatoProcessor::prepareToPlay(double sampleRate, int)
@@ -185,7 +189,32 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     auto pos = *posInfo;
     
     auto isPlaying = pos.getIsPlaying();
-    if (isPlaying) {
+    bool isPlayingNow = isPlaying;
+    
+    if (!isPlayingNow && wasPlaying) {
+        delayQueue.clear();
+        
+        juce::MidiBuffer clearMidi;
+        for (int noteKey : activeDelayedNotes) {
+            int channel = noteKey / 128;
+            int pitch = noteKey % 128;
+            clearMidi.addEvent(juce::MidiMessage::noteOff(channel, pitch), 0);
+        }
+        activeDelayedNotes.clear();
+        noteOffDelays.clear();
+        
+        midiMessages.swapWith(clearMidi);
+        
+        transportWarm = false;
+        warmBlocks = 0;
+        anchorBeat = 1.0;
+        wasPlaying = false;
+        return;
+    }
+    
+    wasPlaying = isPlayingNow;
+    
+    if (isPlayingNow) {
         warmBlocks++;
         if (warmBlocks >= 2)
             transportWarm = true;
@@ -193,6 +222,25 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         transportWarm = false;
         warmBlocks = 0;
         anchorBeat = 1.0;
+    }
+    
+    auto ppqPos = pos.getPpqPosition();
+    if (ppqPos.hasValue()) {
+        double currentPpq = *ppqPos;
+        if (lastPpqPosition >= 0.0 && currentPpq < lastPpqPosition - 0.1) {
+            auto it = delayQueue.begin();
+            while (it != delayQueue.end()) {
+                if (it->message.isNoteOn()) {
+                    int key = it->channel * 128 + it->noteNumber;
+                    activeDelayedNotes.erase(key);
+                    if (noteOffDelays.count(key) > 0 && !noteOffDelays[key].empty()) {
+                        noteOffDelays[key].pop_front();
+                    }
+                }
+                it = delayQueue.erase(it);
+            }
+        }
+        lastPpqPosition = currentPpq;
     }
     
     const bool xlMode = apvts.getRawParameterValue("xlMode")->load() > 0.5f;
@@ -213,7 +261,6 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     }
     
     juce::MidiBuffer processedMidi;
-    int currentSample = 0;
     
     for (const auto metadata : midiMessages)
     {
@@ -265,10 +312,12 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 velocity = compressVelocity(velocity, compThreshold, compRatio);
                 
                 int delaySamples = static_cast<int>((spreadMs / 1000.0) * currentSampleRate);
-                DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)velocity), samplePos + delaySamples};
+                int64_t targetSample = absoluteSampleClock + samplePos + delaySamples;
+                DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)velocity), targetSample, pitch, channel};
                 delayQueue.push_back(delayed);
                 
                 int key = channel * 128 + pitch;
+                activeDelayedNotes.insert(key);
                 noteOffDelays[key].push_back(static_cast<int>(spreadMs));
             } else {
                 float curveVal = curveValue(phraseFrac, shapeIndex);
@@ -298,10 +347,12 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 outputBandVelocities[bandIndex].value.store(outputBandPeaks[bandIndex], std::memory_order_relaxed);
                 
                 int delaySamples = static_cast<int>((totalDelayMs / 1000.0) * currentSampleRate);
-                DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)newVelocity), samplePos + delaySamples};
+                int64_t targetSample = absoluteSampleClock + samplePos + delaySamples;
+                DelayedNote delayed{juce::MidiMessage::noteOn(channel, pitch, (juce::uint8)newVelocity), targetSample, pitch, channel};
                 delayQueue.push_back(delayed);
                 
                 int key = channel * 128 + pitch;
+                activeDelayedNotes.insert(key);
                 noteOffDelays[key].push_back(static_cast<int>(totalDelayMs));
             }
         }
@@ -316,7 +367,8 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 noteOffDelays[key].pop_front();
                 
                 int delaySamples = static_cast<int>((delayMs / 1000.0) * currentSampleRate);
-                DelayedNote delayed{juce::MidiMessage::noteOff(channel, pitch, (juce::uint8)0), samplePos + delaySamples};
+                int64_t targetSample = absoluteSampleClock + samplePos + delaySamples;
+                DelayedNote delayed{juce::MidiMessage::noteOff(channel, pitch, (juce::uint8)0), targetSample, pitch, channel};
                 delayQueue.push_back(delayed);
             } else {
                 processedMidi.addEvent(msg, samplePos);
@@ -330,14 +382,25 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     
     auto it = delayQueue.begin();
     while (it != delayQueue.end()) {
-        if (it->targetSample <= currentSample + buffer.getNumSamples()) {
-            int outSample = juce::jmax(0, it->targetSample - currentSample);
+        if (it->targetSample < absoluteSampleClock + buffer.getNumSamples()) {
+            int64_t offset = it->targetSample - absoluteSampleClock;
+            int outSample = juce::jmax(0, static_cast<int>(offset));
             processedMidi.addEvent(it->message, outSample);
+            
+            if (it->message.isNoteOn()) {
+                int key = it->channel * 128 + it->noteNumber;
+            } else if (it->message.isNoteOff()) {
+                int key = it->channel * 128 + it->noteNumber;
+                activeDelayedNotes.erase(key);
+            }
+            
             it = delayQueue.erase(it);
         } else {
             ++it;
         }
     }
+    
+    absoluteSampleClock += buffer.getNumSamples();
     
     for (int i = 0; i < 16; ++i) {
         inputBandDecay[i]++;

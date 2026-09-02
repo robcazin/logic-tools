@@ -3,7 +3,7 @@
 RubatoEditor::RubatoEditor(RubatoProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 650);
+    setSize(800, 855);
     
     displayBandVelocities.fill(0);
     
@@ -410,22 +410,22 @@ void RubatoEditor::paint(juce::Graphics& g)
     g.setFont(11.0f);
     g.drawText("All notes", juce::Rectangle<int>(60, 208, 80, 12), juce::Justification::centred);
     
-    juce::Rectangle<int> timeGroupBounds(20, 240, 240, 365);
+    juce::Rectangle<int> timeGroupBounds(20, 240, 240, 393);
     drawControlGroup(g, timeGroupBounds, "Time");
     
-    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 565);
+    juce::Rectangle<int> velocityGroupBounds(280, 240, 240, 619);
     drawControlGroup(g, velocityGroupBounds, "Velocity");
     
-    juce::Rectangle<int> compGroupBounds(290, 650, 220, 155);
+    juce::Rectangle<int> compGroupBounds(290, 729, 220, 110);
     g.setColour(juce::Colour(196, 138, 58));
     g.drawRect(compGroupBounds, 1);
     g.setFont(12.0f);
     g.drawText("Comp", compGroupBounds.withHeight(20), juce::Justification::centred);
     
-    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 265);
+    juce::Rectangle<int> pulseGroupBounds(540, 240, 240, 366);
     drawControlGroup(g, pulseGroupBounds, "Pulse / Drift");
     
-    juce::Rectangle<int> squishGroupBounds(540, 520, 240, 110);
+    juce::Rectangle<int> squishGroupBounds(540, 618, 240, 110);
     drawControlGroup(g, squishGroupBounds, "Squish");
 }
 
@@ -491,13 +491,12 @@ void RubatoEditor::resized()
     floorLabel.setBounds(velX, velY + row, 100, 20);
     floorSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
     
-    row += sliderRowHeight;
-    compThresholdLabel.setBounds(velX, velY + row, 100, 20);
-    compThresholdSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    int compY = 754;
+    compThresholdLabel.setBounds(velX, compY, 90, 20);
+    compThresholdSlider.setBounds(velX, compY - 10, 80, 80);
     
-    row += sliderRowHeight;
-    compRatioLabel.setBounds(velX, velY + row, 100, 20);
-    compRatioSlider.setBounds(velX + 110, velY + row - 10, 80, 80);
+    compRatioLabel.setBounds(velX + 110, compY, 90, 20);
+    compRatioSlider.setBounds(velX + 110, compY - 10, 80, 80);
     
     int pulseX = 550;
     int pulseY = 265;
@@ -518,10 +517,10 @@ void RubatoEditor::resized()
     driftDepthLabel.setBounds(pulseX, pulseY + row, 100, 20);
     driftDepthSlider.setBounds(pulseX + 110, pulseY + row - 10, 80, 80);
     
-    int squishX = 550;
-    int squishY = 545;
-    squishLabel.setBounds(squishX, squishY, 100, 20);
-    squishSlider.setBounds(squishX + 110, squishY - 10, 80, 80);
+    row += sliderRowHeight;
+    xlModeToggle.setBounds(pulseX, pulseY + row, 100, 25);
     
-    xlModeToggle.setBounds(550, 540, 100, 25);
+    int squishY = 643;
+    squishLabel.setBounds(pulseX, squishY, 100, 20);
+    squishSlider.setBounds(pulseX + 110, squishY - 10, 80, 80);
 }

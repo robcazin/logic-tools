@@ -37,6 +37,9 @@ private:
     juce::Slider phraseLengthSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> phraseLengthAttachment;
     
+    juce::TextButton manualButton;
+    juce::TextButton autoButton;
+    
     juce::Label triggerModeLabel;
     juce::ComboBox triggerModeBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> triggerModeAttachment;

@@ -14,6 +14,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout RubatoProcessor::createParam
     layout.add(std::make_unique<juce::AudioParameterInt>(
         "phraseLength", "Phrase Length (bars)", 1, 32, 4));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "phraseLengthMode", "Phrase Length Mode", juce::StringArray{"Manual", "Auto"}, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
         "triggerMode", "Trigger Mode", juce::StringArray{"Cycle Region", "Fixed Bar Length"}, 1));
     layout.add(std::make_unique<juce::AudioParameterBool>(
         "reAnchor", "Re-Anchor", false));
@@ -213,7 +215,16 @@ float RubatoProcessor::calculatePhraseFraction(juce::AudioPlayHead::PositionInfo
             return -1.0f;
         
         double beatsPerBar = timeSignature->numerator * 4.0 / timeSignature->denominator;
-        int phraseBars = apvts.getRawParameterValue("phraseLength")->load();
+        
+        int phraseLengthMode = apvts.getRawParameterValue("phraseLengthMode")->load();
+        int phraseBars;
+        if (phraseLengthMode == 1) {
+            phraseBars = timeSignature->numerator;
+        } else {
+            phraseBars = apvts.getRawParameterValue("phraseLength")->load();
+        }
+        phraseBars = juce::jlimit(1, 32, phraseBars);
+        
         double phraseLengthBeats = phraseBars * beatsPerBar;
         
         double relativeBeat = *ppqPos - anchorBeat;

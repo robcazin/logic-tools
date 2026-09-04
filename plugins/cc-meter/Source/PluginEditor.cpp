@@ -67,6 +67,42 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     phraseLengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         processor.getApvts(), "phraseLength", phraseLengthSlider);
     
+    manualButton.setButtonText("Manual");
+    manualButton.setClickingTogglesState(true);
+    manualButton.setToggleState(true, juce::dontSendNotification);
+    manualButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff4a90e2));
+    manualButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    manualButton.onClick = [this]() {
+        if (!manualButton.getToggleState()) {
+            manualButton.setToggleState(true, juce::dontSendNotification);
+        } else {
+            auto param = processor.getApvts().getParameter("phraseLengthMode");
+            if (param != nullptr) {
+                param->setValueNotifyingHost(0.0f);
+            }
+            autoButton.setToggleState(false, juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible(manualButton);
+    
+    autoButton.setButtonText("Auto");
+    autoButton.setClickingTogglesState(true);
+    autoButton.setToggleState(false, juce::dontSendNotification);
+    autoButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff4a90e2));
+    autoButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    autoButton.onClick = [this]() {
+        if (!autoButton.getToggleState()) {
+            autoButton.setToggleState(true, juce::dontSendNotification);
+        } else {
+            auto param = processor.getApvts().getParameter("phraseLengthMode");
+            if (param != nullptr) {
+                param->setValueNotifyingHost(1.0f);
+            }
+            manualButton.setToggleState(false, juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible(autoButton);
+    
     triggerModeLabel.setText("Trigger Mode", juce::dontSendNotification);
     triggerModeLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(triggerModeLabel);
@@ -231,6 +267,13 @@ void RubatoEditor::timerCallback()
     {
         displayPhraseCurve = newPhraseCurve;
         repaint();
+    }
+    
+    int phraseLengthMode = processor.getApvts().getRawParameterValue("phraseLengthMode")->load();
+    bool shouldBeManual = (phraseLengthMode == 0);
+    if (manualButton.getToggleState() != shouldBeManual) {
+        manualButton.setToggleState(shouldBeManual, juce::dontSendNotification);
+        autoButton.setToggleState(!shouldBeManual, juce::dontSendNotification);
     }
     
     const int newTimingIntensity = processor.getPhraseTimingIntensity();
@@ -516,6 +559,8 @@ void RubatoEditor::resized()
     
     row += comboRowHeight;
     phraseLengthLabel.setBounds(timeX, timeY + row, 100, 20);
+    manualButton.setBounds(timeX, timeY + row + 22, 38, 22);
+    autoButton.setBounds(timeX + 46, timeY + row + 22, 38, 22);
     phraseLengthSlider.setBounds(timeX + 110, timeY + row - 10, 80, 80);
     
     row += sliderRowHeight;

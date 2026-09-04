@@ -100,7 +100,7 @@ private:
     };
     std::map<int, std::deque<int>> noteOffDelays;
     
-    double anchorBeat = 1.0;
+    double anchorBeat = 0.0;
     bool lastReAnchor = false;
     bool transportWarm = false;
     int warmBlocks = 0;

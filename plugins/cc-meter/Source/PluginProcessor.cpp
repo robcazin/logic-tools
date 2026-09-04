@@ -125,7 +125,9 @@ void RubatoProcessor::applyLife(juce::AudioPlayHead::PositionInfo& pos, float& a
         return;
     
     double beatsPerBar = timeSignature->numerator * 4.0 / timeSignature->denominator;
-    double blockStartBeat = *ppqPos - anchorBeat + 1.0;
+    double blockStartBeat = *ppqPos - anchorBeat;
+    if (blockStartBeat < 0.0)
+        blockStartBeat = 0.0;
     double bars = blockStartBeat / beatsPerBar;
     
     const float pi = juce::MathConstants<float>::pi;
@@ -214,7 +216,7 @@ float RubatoProcessor::calculatePhraseFraction(juce::AudioPlayHead::PositionInfo
         int phraseBars = apvts.getRawParameterValue("phraseLength")->load();
         double phraseLengthBeats = phraseBars * beatsPerBar;
         
-        double relativeBeat = *ppqPos - anchorBeat + 1.0;
+        double relativeBeat = *ppqPos - anchorBeat;
         if (relativeBeat < 0)
             relativeBeat = 0.0;
         
@@ -261,7 +263,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         
         transportWarm = false;
         warmBlocks = 0;
-        anchorBeat = 1.0;
+        anchorBeat = 0.0;
         wasPlaying = false;
         return;
     }
@@ -334,6 +336,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         velocityShapeCurve.store(static_cast<int>(velCurveVal * 127.0f), std::memory_order_relaxed);
     } else {
         phraseTimingIntensity.store(0, std::memory_order_relaxed);
+        velocityShapeCurve.store(0, std::memory_order_relaxed);
     }
     
     juce::Random blockRandom(static_cast<int64_t>(absoluteSampleClock));

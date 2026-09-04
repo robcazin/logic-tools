@@ -101,6 +101,7 @@ private:
     std::map<int, std::deque<int>> noteOffDelays;
     
     double anchorBeat = 1.0;
+    bool lastReAnchor = false;
     bool transportWarm = false;
     int warmBlocks = 0;
     std::map<int, int> lastCCValues;

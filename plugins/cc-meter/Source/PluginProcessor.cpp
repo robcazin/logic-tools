@@ -214,9 +214,9 @@ float RubatoProcessor::calculatePhraseFraction(juce::AudioPlayHead::PositionInfo
         int phraseBars = apvts.getRawParameterValue("phraseLength")->load();
         double phraseLengthBeats = phraseBars * beatsPerBar;
         
-        double relativeBeat = *ppqPos - anchorBeat;
+        double relativeBeat = *ppqPos - anchorBeat + 1.0;
         if (relativeBeat < 0)
-            return -1.0f;
+            relativeBeat = 0.0;
         
         double phraseIndex = std::floor(relativeBeat / phraseLengthBeats);
         double phraseStartBeat = phraseIndex * phraseLengthBeats;
@@ -230,11 +230,13 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     
     auto playHead = getPlayHead();
     if (playHead == nullptr) {
+        absoluteSampleClock += buffer.getNumSamples();
         return;
     }
     
     auto posInfo = playHead->getPosition();
     if (!posInfo.hasValue()) {
+        absoluteSampleClock += buffer.getNumSamples();
         return;
     }
     
@@ -273,7 +275,6 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     } else {
         transportWarm = false;
         warmBlocks = 0;
-        anchorBeat = 1.0;
     }
     
     auto ppqPos = pos.getPpqPosition();
@@ -294,6 +295,12 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         }
         lastPpqPosition = currentPpq;
     }
+    
+    bool reAnchor = apvts.getRawParameterValue("reAnchor")->load() > 0.5f;
+    if (reAnchor && !lastReAnchor && ppqPos.hasValue()) {
+        anchorBeat = *ppqPos;
+    }
+    lastReAnchor = reAnchor;
     
     const bool xlMode = apvts.getRawParameterValue("xlMode")->load() > 0.5f;
     const int amountMs = apvts.getRawParameterValue("amountMs")->load();
@@ -578,7 +585,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     
     auto it = delayQueue.begin();
     while (it != delayQueue.end()) {
-        if (it->targetSample < absoluteSampleClock + buffer.getNumSamples()) {
+        if (it->targetSample <= absoluteSampleClock + buffer.getNumSamples() - 1) {
             int64_t offset = it->targetSample - absoluteSampleClock;
             int outSample = juce::jmax(0, static_cast<int>(offset));
             processedMidi.addEvent(it->message, outSample);

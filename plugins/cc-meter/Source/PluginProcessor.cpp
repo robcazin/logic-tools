@@ -372,7 +372,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 if (ccNum >= 21 && ccNum <= 26) {
                     int ccVal = msg.getControllerValue();
                     
-                    const char* paramIds[] = {"amountMs", "velocityReplace", "floor", "compThreshold", "chordSpreadMs", "velocityBoost"};
+                    const char* paramIds[] = {"amountMs", "velocityReplace", "floor", "compThreshold", "phraseLength", "squish"};
                     int paramIndex = ccNum - 21;
                     
                     if (paramIndex < 6) {
@@ -380,6 +380,24 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                         if (param != nullptr) {
                             param->setValueNotifyingHost(ccVal / 127.0f);
                         }
+                    }
+                    continue;
+                }
+                
+                if (ccNum == 76) {
+                    int ccVal = msg.getControllerValue();
+                    auto param = apvts.getParameter("chordSpreadMs");
+                    if (param != nullptr) {
+                        param->setValueNotifyingHost(ccVal / 127.0f);
+                    }
+                    continue;
+                }
+                
+                if (ccNum == 77) {
+                    int ccVal = msg.getControllerValue();
+                    auto param = apvts.getParameter("velocityBoost");
+                    if (param != nullptr) {
+                        param->setValueNotifyingHost(ccVal / 127.0f);
                     }
                     continue;
                 }

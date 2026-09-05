@@ -372,7 +372,7 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 if (ccNum >= 21 && ccNum <= 26) {
                     int ccVal = msg.getControllerValue();
                     
-                    const char* paramIds[] = {"amountMs", "velocityBoost", "compThreshold", "compRatio", "phraseLength", "chordSpreadMs"};
+                    const char* paramIds[] = {"amountMs", "velocityReplace", "floor", "compThreshold", "phraseLength", "squish"};
                     int paramIndex = ccNum - 21;
                     
                     if (paramIndex < 6) {

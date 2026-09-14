@@ -263,7 +263,30 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     
     bakeButton.setButtonText("Bake");
     bakeButton.onClick = [this]() {
-        processor.exportBakeToMidi();
+        int count = processor.getBakedEventCount();
+        if (count == 0)
+        {
+            bakeButton.setButtonText("Bake (empty)");
+            juce::Timer::callAfterDelay(2000, [this]() {
+                int currentCount = processor.getBakedEventCount();
+                if (currentCount == 0)
+                    bakeButton.setButtonText("Bake");
+                else
+                    bakeButton.setButtonText(juce::String::formatted("Bake (%d)", currentCount));
+            });
+        }
+        else
+        {
+            processor.exportBakeToMidi();
+            bakeButton.setButtonText(juce::String::formatted("Bake (%d ok)", count));
+            juce::Timer::callAfterDelay(2000, [this]() {
+                int currentCount = processor.getBakedEventCount();
+                if (currentCount == 0)
+                    bakeButton.setButtonText("Bake");
+                else
+                    bakeButton.setButtonText(juce::String::formatted("Bake (%d)", currentCount));
+            });
+        }
     };
     addAndMakeVisible(bakeButton);
     
@@ -289,6 +312,25 @@ void RubatoEditor::timerCallback()
     if (manualButton.getToggleState() != shouldBeManual) {
         manualButton.setToggleState(shouldBeManual, juce::dontSendNotification);
         autoButton.setToggleState(!shouldBeManual, juce::dontSendNotification);
+    }
+    
+    int bakedCount = processor.getBakedEventCount();
+    bool armed = processor.isBakeArmed();
+    
+    juce::String armText = armed ?
+        (bakedCount > 0 ? juce::String::formatted("Bake Arm · %d", bakedCount) : "Bake Arm") :
+        "Bake Arm";
+    if (bakeArmToggle.getButtonText() != armText)
+        bakeArmToggle.setButtonText(armText);
+    
+    juce::String currentBakeText = bakeButton.getButtonText();
+    if (!currentBakeText.contains("(empty)") && !currentBakeText.contains("ok"))
+    {
+        juce::String bakeText = bakedCount > 0 ? 
+            juce::String::formatted("Bake (%d)", bakedCount) : 
+            "Bake";
+        if (currentBakeText != bakeText)
+            bakeButton.setButtonText(bakeText);
     }
     
     const int newTimingIntensity = processor.getPhraseTimingIntensity();

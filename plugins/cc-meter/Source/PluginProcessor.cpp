@@ -698,48 +698,83 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         }
     }
     
-    if (bakeArmed.load(std::memory_order_relaxed) && pos.getTimeInSeconds().hasValue())
+    if (bakeArmed.load(std::memory_order_relaxed))
     {
-        double currentTime = *pos.getTimeInSeconds();
+        double eventTimestamp = 0.0;
+        bool haveTimestamp = false;
+        
+        auto timeInSeconds = pos.getTimeInSeconds();
+        if (timeInSeconds.hasValue())
+        {
+            eventTimestamp = *timeInSeconds;
+            haveTimestamp = true;
+        }
+        else
+        {
+            auto ppqPos = pos.getPpqPosition();
+            if (ppqPos.hasValue())
+            {
+                eventTimestamp = *ppqPos;
+                haveTimestamp = true;
+            }
+            else
+            {
+                eventTimestamp = static_cast<double>(absoluteSampleClock) / currentSampleRate;
+                haveTimestamp = true;
+            }
+        }
         
         auto bpm = pos.getBpm();
         if (bpm.hasValue())
             currentTempo = *bpm;
         
-        juce::ScopedLock lock(bakeBufferLock);
-        
-        if (bakeBuffer.empty())
-            bakeStartTime = currentTime;
-        
-        for (const auto metadata : processedMidi)
+        if (haveTimestamp)
         {
-            auto msg = metadata.getMessage();
+            juce::ScopedLock lock(bakeBufferLock);
             
-            bool shouldCapture = false;
-            
-            if (msg.isNoteOn() || msg.isNoteOff())
+            if (bakeBuffer.empty())
             {
-                shouldCapture = true;
+                bakeStartTime = eventTimestamp;
+                
+                auto ppqPos = pos.getPpqPosition();
+                if (ppqPos.hasValue())
+                    bakeStartPpq = *ppqPos;
+                else
+                    bakeStartPpq = 0.0;
             }
-            else if (msg.isController())
+            
+            for (const auto metadata : processedMidi)
             {
-                int ccNum = msg.getControllerNumber();
-                if ((ccNum < 21 || ccNum > 26) && ccNum != 76 && ccNum != 77)
+                auto msg = metadata.getMessage();
+                
+                bool shouldCapture = false;
+                
+                if (msg.isNoteOn() || msg.isNoteOff())
                 {
                     shouldCapture = true;
                 }
-            }
-            else if (!msg.isMidiClock() && !msg.isActiveSense())
-            {
-                shouldCapture = true;
+                else if (msg.isController())
+                {
+                    int ccNum = msg.getControllerNumber();
+                    if ((ccNum < 21 || ccNum > 26) && ccNum != 76 && ccNum != 77)
+                    {
+                        shouldCapture = true;
+                    }
+                }
+                else if (!msg.isMidiClock() && !msg.isActiveSense())
+                {
+                    shouldCapture = true;
+                }
+                
+                if (shouldCapture)
+                {
+                    double sampleOffset = metadata.samplePosition / currentSampleRate;
+                    double msgTimestamp = eventTimestamp + sampleOffset;
+                    bakeBuffer.push_back({msg, msgTimestamp});
+                }
             }
             
-            if (shouldCapture)
-            {
-                double sampleOffset = metadata.samplePosition / currentSampleRate;
-                double eventTime = currentTime + sampleOffset;
-                bakeBuffer.push_back({msg, eventTime});
-            }
+            bakeEventCount.store(static_cast<int>(bakeBuffer.size()), std::memory_order_relaxed);
         }
     }
     
@@ -774,6 +809,8 @@ void RubatoProcessor::setBakeArmed(bool armed)
         juce::ScopedLock lock(bakeBufferLock);
         bakeBuffer.clear();
         bakeStartTime = 0.0;
+        bakeStartPpq = 0.0;
+        bakeEventCount.store(0, std::memory_order_relaxed);
     }
 }
 
@@ -782,6 +819,8 @@ void RubatoProcessor::clearBakeBuffer()
     juce::ScopedLock lock(bakeBufferLock);
     bakeBuffer.clear();
     bakeStartTime = 0.0;
+    bakeStartPpq = 0.0;
+    bakeEventCount.store(0, std::memory_order_relaxed);
 }
 
 void RubatoProcessor::exportBakeToMidi()
@@ -789,19 +828,14 @@ void RubatoProcessor::exportBakeToMidi()
     std::vector<BakedEvent> bufferCopy;
     double startTime;
     double tempo;
+    int eventCount;
     
     {
         juce::ScopedLock lock(bakeBufferLock);
+        eventCount = static_cast<int>(bakeBuffer.size());
         
-        if (bakeBuffer.empty())
-        {
-            juce::AlertWindow::showMessageBoxAsync(
-                juce::AlertWindow::InfoIcon,
-                "Rubato Bake",
-                "No MIDI data captured. Arm capture and play through some notes first.",
-                "OK");
+        if (eventCount == 0)
             return;
-        }
         
         bufferCopy = bakeBuffer;
         startTime = bakeStartTime;
@@ -809,72 +843,51 @@ void RubatoProcessor::exportBakeToMidi()
     }
     
     auto time = juce::Time::getCurrentTime();
-    auto defaultName = juce::String::formatted("Rubato-bake-%04d%02d%02d-%02d%02d.mid",
-                                               time.getYear(),
-                                               time.getMonth() + 1,
-                                               time.getDayOfMonth(),
-                                               time.getHours(),
-                                               time.getMinutes());
+    auto filename = juce::String::formatted("Rubato-bake-%04d%02d%02d-%02d%02d%02d.mid",
+                                           time.getYear(),
+                                           time.getMonth() + 1,
+                                           time.getDayOfMonth(),
+                                           time.getHours(),
+                                           time.getMinutes(),
+                                           time.getSeconds());
     
-    auto chooser = std::make_shared<juce::FileChooser>(
-        "Save Baked MIDI File",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(defaultName),
-        "*.mid");
+    auto documentsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+    auto bakesDir = documentsDir.getChildFile("Rubato-bakes");
     
-    auto flags = juce::FileBrowserComponent::saveMode 
-               | juce::FileBrowserComponent::canSelectFiles
-               | juce::FileBrowserComponent::warnAboutOverwriting;
+    if (!bakesDir.exists())
+        bakesDir.createDirectory();
     
-    chooser->launchAsync(flags, [bufferCopy, startTime, tempo](const juce::FileChooser& fc)
+    auto file = bakesDir.getChildFile(filename);
+    
+    juce::MidiFile midiFile;
+    int ticksPerQuarterNote = 960;
+    midiFile.setTicksPerQuarterNote(ticksPerQuarterNote);
+    
+    juce::MidiMessageSequence sequence;
+    
+    sequence.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / tempo)));
+    
+    for (const auto& event : bufferCopy)
     {
-        auto file = fc.getResult();
+        double timeInSeconds = event.timestamp - startTime;
+        double timeInBeats = (timeInSeconds * tempo) / 60.0;
+        double timeInTicks = timeInBeats * ticksPerQuarterNote;
         
-        if (!file.existsAsFile() && !file.hasFileExtension(".mid"))
-            file = file.withFileExtension(".mid");
+        sequence.addEvent(event.message, timeInTicks);
+    }
+    
+    sequence.updateMatchedPairs();
+    
+    midiFile.addTrack(sequence);
+    
+    juce::FileOutputStream stream(file);
+    if (stream.openedOk())
+    {
+        midiFile.writeTo(stream);
+        stream.flush();
         
-        if (file == juce::File())
-            return;
-        
-        juce::MidiFile midiFile;
-        midiFile.setTicksPerQuarterNote(960);
-        
-        juce::MidiMessageSequence sequence;
-        
-        sequence.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / tempo)));
-        
-        for (const auto& event : bufferCopy)
-        {
-            double timeInSeconds = event.timestamp - startTime;
-            double timeInBeats = (timeInSeconds * tempo) / 60.0;
-            
-            sequence.addEvent(event.message, timeInBeats);
-        }
-        
-        sequence.updateMatchedPairs();
-        
-        midiFile.addTrack(sequence);
-        
-        juce::FileOutputStream stream(file);
-        if (stream.openedOk())
-        {
-            midiFile.writeTo(stream);
-            stream.flush();
-            
-            juce::AlertWindow::showMessageBoxAsync(
-                juce::AlertWindow::InfoIcon,
-                "Rubato Bake",
-                "MIDI file exported successfully to:\n" + file.getFullPathName(),
-                "OK");
-        }
-        else
-        {
-            juce::AlertWindow::showMessageBoxAsync(
-                juce::AlertWindow::WarningIcon,
-                "Rubato Bake",
-                "Failed to write MIDI file.",
-                "OK");
-        }
-    });
+        file.revealToUser();
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

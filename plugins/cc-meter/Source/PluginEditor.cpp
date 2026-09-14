@@ -252,6 +252,44 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     xlModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         processor.getApvts(), "xlMode", xlModeToggle);
     
+    bakeArmToggle.setButtonText("Bake Arm");
+    bakeArmToggle.setClickingTogglesState(true);
+    bakeArmToggle.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff4444));
+    bakeArmToggle.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    bakeArmToggle.onClick = [this]() {
+        processor.setBakeArmed(bakeArmToggle.getToggleState());
+    };
+    addAndMakeVisible(bakeArmToggle);
+    
+    bakeButton.setButtonText("Bake");
+    bakeButton.onClick = [this]() {
+        int count = processor.getBakedEventCount();
+        if (count == 0)
+        {
+            bakeButton.setButtonText("Bake (empty)");
+            juce::Timer::callAfterDelay(2000, [this]() {
+                int currentCount = processor.getBakedEventCount();
+                if (currentCount == 0)
+                    bakeButton.setButtonText("Bake");
+                else
+                    bakeButton.setButtonText(juce::String::formatted("Bake (%d)", currentCount));
+            });
+        }
+        else
+        {
+            processor.exportBakeToMidi();
+            bakeButton.setButtonText(juce::String::formatted("Bake (%d ok)", count));
+            juce::Timer::callAfterDelay(2000, [this]() {
+                int currentCount = processor.getBakedEventCount();
+                if (currentCount == 0)
+                    bakeButton.setButtonText("Bake");
+                else
+                    bakeButton.setButtonText(juce::String::formatted("Bake (%d)", currentCount));
+            });
+        }
+    };
+    addAndMakeVisible(bakeButton);
+    
     startTimerHz(30);
 }
 
@@ -274,6 +312,25 @@ void RubatoEditor::timerCallback()
     if (manualButton.getToggleState() != shouldBeManual) {
         manualButton.setToggleState(shouldBeManual, juce::dontSendNotification);
         autoButton.setToggleState(!shouldBeManual, juce::dontSendNotification);
+    }
+    
+    int bakedCount = processor.getBakedEventCount();
+    bool armed = processor.isBakeArmed();
+    
+    juce::String armText = armed ?
+        (bakedCount > 0 ? juce::String::formatted("Bake Arm · %d", bakedCount) : "Bake Arm") :
+        "Bake Arm";
+    if (bakeArmToggle.getButtonText() != armText)
+        bakeArmToggle.setButtonText(armText);
+    
+    juce::String currentBakeText = bakeButton.getButtonText();
+    if (!currentBakeText.contains("(empty)") && !currentBakeText.contains("ok"))
+    {
+        juce::String bakeText = bakedCount > 0 ? 
+            juce::String::formatted("Bake (%d)", bakedCount) : 
+            "Bake";
+        if (currentBakeText != bakeText)
+            bakeButton.setButtonText(bakeText);
     }
     
     const int newTimingIntensity = processor.getPhraseTimingIntensity();
@@ -630,6 +687,12 @@ void RubatoEditor::resized()
     
     row += sliderRowHeight;
     xlModeToggle.setBounds(pulseX, pulseY + row, 100, 25);
+    
+    row += buttonRowHeight;
+    bakeArmToggle.setBounds(pulseX, pulseY + row, 100, 25);
+    
+    row += buttonRowHeight;
+    bakeButton.setBounds(pulseX, pulseY + row, 100, 25);
     
     int squishY = 769;
     squishLabel.setBounds(pulseX, squishY, 100, 20);

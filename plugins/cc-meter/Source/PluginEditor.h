@@ -106,6 +106,9 @@ private:
     juce::ToggleButton xlModeToggle;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> xlModeAttachment;
     
+    juce::ToggleButton bakeArmToggle;
+    juce::TextButton bakeButton;
+    
     int displayPhraseCurve = 0;
     int displayTimingIntensity = 0;
     std::array<int, 16> displayBandVelocities;

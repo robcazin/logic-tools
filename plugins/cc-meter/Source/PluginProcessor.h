@@ -64,6 +64,12 @@ public:
     
     std::array<NoteEvent, NOTE_RING_SIZE> getNoteRing();
     int getNoteRingWritePos() const { return noteRingWritePos.load(std::memory_order_relaxed); }
+    
+    void setBakeArmed(bool armed);
+    bool isBakeArmed() const { return bakeArmed.load(std::memory_order_relaxed); }
+    int getBakedEventCount() const { return bakeEventCount.load(std::memory_order_relaxed); }
+    void exportBakeToMidi();
+    void clearBakeBuffer();
 
 private:
     void handleAsyncUpdate() override;
@@ -120,6 +126,18 @@ private:
     std::array<int, 16> outputBandPeaks;
     std::array<int, 16> inputBandDecay;
     std::array<int, 16> outputBandDecay;
+    
+    std::atomic<bool> bakeArmed{false};
+    std::atomic<int> bakeEventCount{0};
+    struct BakedEvent {
+        juce::MidiMessage message;
+        double timestamp;
+    };
+    std::vector<BakedEvent> bakeBuffer;
+    juce::CriticalSection bakeBufferLock;
+    double bakeStartTime = 0.0;
+    double bakeStartPpq = 0.0;
+    double currentTempo = 120.0;
     
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     

@@ -786,21 +786,27 @@ void RubatoProcessor::clearBakeBuffer()
 
 void RubatoProcessor::exportBakeToMidi()
 {
-    juce::ScopedLock lock(bakeBufferLock);
+    std::vector<BakedEvent> bufferCopy;
+    double startTime;
+    double tempo;
     
-    if (bakeBuffer.empty())
     {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::InfoIcon,
-            "Rubato Bake",
-            "No MIDI data captured. Arm capture and play through some notes first.",
-            "OK");
-        return;
+        juce::ScopedLock lock(bakeBufferLock);
+        
+        if (bakeBuffer.empty())
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::InfoIcon,
+                "Rubato Bake",
+                "No MIDI data captured. Arm capture and play through some notes first.",
+                "OK");
+            return;
+        }
+        
+        bufferCopy = bakeBuffer;
+        startTime = bakeStartTime;
+        tempo = currentTempo;
     }
-    
-    juce::FileChooser chooser("Save Baked MIDI File",
-                              juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
-                              "*.mid");
     
     auto time = juce::Time::getCurrentTime();
     auto defaultName = juce::String::formatted("Rubato-bake-%04d%02d%02d-%02d%02d.mid",
@@ -810,23 +816,36 @@ void RubatoProcessor::exportBakeToMidi()
                                                time.getHours(),
                                                time.getMinutes());
     
-    if (chooser.browseForFileToSave(true))
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Save Baked MIDI File",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(defaultName),
+        "*.mid");
+    
+    auto flags = juce::FileBrowserComponent::saveMode 
+               | juce::FileBrowserComponent::canSelectFiles
+               | juce::FileBrowserComponent::warnAboutOverwriting;
+    
+    chooser->launchAsync(flags, [bufferCopy, startTime, tempo](const juce::FileChooser& fc)
     {
-        auto file = chooser.getResult();
-        if (file.getFileName().isEmpty())
-            file = file.getParentDirectory().getChildFile(defaultName);
+        auto file = fc.getResult();
+        
+        if (!file.existsAsFile() && !file.hasFileExtension(".mid"))
+            file = file.withFileExtension(".mid");
+        
+        if (file == juce::File())
+            return;
         
         juce::MidiFile midiFile;
         midiFile.setTicksPerQuarterNote(960);
         
         juce::MidiMessageSequence sequence;
         
-        sequence.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / currentTempo)));
+        sequence.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / tempo)));
         
-        for (const auto& event : bakeBuffer)
+        for (const auto& event : bufferCopy)
         {
-            double timeInSeconds = event.timestamp - bakeStartTime;
-            double timeInBeats = (timeInSeconds * currentTempo) / 60.0;
+            double timeInSeconds = event.timestamp - startTime;
+            double timeInBeats = (timeInSeconds * tempo) / 60.0;
             
             sequence.addEvent(event.message, timeInBeats);
         }
@@ -855,7 +874,7 @@ void RubatoProcessor::exportBakeToMidi()
                 "Failed to write MIDI file.",
                 "OK");
         }
-    }
+    });
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

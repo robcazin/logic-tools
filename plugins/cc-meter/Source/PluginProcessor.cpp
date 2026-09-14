@@ -698,6 +698,51 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         }
     }
     
+    if (bakeArmed.load(std::memory_order_relaxed) && pos.getTimeInSeconds().hasValue())
+    {
+        double currentTime = *pos.getTimeInSeconds();
+        
+        auto bpm = pos.getBpm();
+        if (bpm.hasValue())
+            currentTempo = *bpm;
+        
+        juce::ScopedLock lock(bakeBufferLock);
+        
+        if (bakeBuffer.empty())
+            bakeStartTime = currentTime;
+        
+        for (const auto metadata : processedMidi)
+        {
+            auto msg = metadata.getMessage();
+            
+            bool shouldCapture = false;
+            
+            if (msg.isNoteOn() || msg.isNoteOff())
+            {
+                shouldCapture = true;
+            }
+            else if (msg.isController())
+            {
+                int ccNum = msg.getControllerNumber();
+                if ((ccNum < 21 || ccNum > 26) && ccNum != 76 && ccNum != 77)
+                {
+                    shouldCapture = true;
+                }
+            }
+            else if (!msg.isMidiClock() && !msg.isActiveSense())
+            {
+                shouldCapture = true;
+            }
+            
+            if (shouldCapture)
+            {
+                double sampleOffset = metadata.samplePosition / currentSampleRate;
+                double eventTime = currentTime + sampleOffset;
+                bakeBuffer.push_back({msg, eventTime});
+            }
+        }
+    }
+    
     midiMessages.swapWith(processedMidi);
 }
 
@@ -718,6 +763,99 @@ void RubatoProcessor::setStateInformation(const void* data, int sizeInBytes)
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState != nullptr && xmlState->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+}
+
+void RubatoProcessor::setBakeArmed(bool armed)
+{
+    bakeArmed.store(armed, std::memory_order_relaxed);
+    
+    if (armed)
+    {
+        juce::ScopedLock lock(bakeBufferLock);
+        bakeBuffer.clear();
+        bakeStartTime = 0.0;
+    }
+}
+
+void RubatoProcessor::clearBakeBuffer()
+{
+    juce::ScopedLock lock(bakeBufferLock);
+    bakeBuffer.clear();
+    bakeStartTime = 0.0;
+}
+
+void RubatoProcessor::exportBakeToMidi()
+{
+    juce::ScopedLock lock(bakeBufferLock);
+    
+    if (bakeBuffer.empty())
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::InfoIcon,
+            "Rubato Bake",
+            "No MIDI data captured. Arm capture and play through some notes first.",
+            "OK");
+        return;
+    }
+    
+    juce::FileChooser chooser("Save Baked MIDI File",
+                              juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+                              "*.mid");
+    
+    auto time = juce::Time::getCurrentTime();
+    auto defaultName = juce::String::formatted("Rubato-bake-%04d%02d%02d-%02d%02d.mid",
+                                               time.getYear(),
+                                               time.getMonth() + 1,
+                                               time.getDayOfMonth(),
+                                               time.getHours(),
+                                               time.getMinutes());
+    
+    if (chooser.browseForFileToSave(true))
+    {
+        auto file = chooser.getResult();
+        if (file.getFileName().isEmpty())
+            file = file.getParentDirectory().getChildFile(defaultName);
+        
+        juce::MidiFile midiFile;
+        midiFile.setTicksPerQuarterNote(960);
+        
+        juce::MidiMessageSequence sequence;
+        
+        sequence.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / currentTempo)));
+        
+        for (const auto& event : bakeBuffer)
+        {
+            double timeInSeconds = event.timestamp - bakeStartTime;
+            double timeInBeats = (timeInSeconds * currentTempo) / 60.0;
+            
+            sequence.addEvent(event.message, timeInBeats);
+        }
+        
+        sequence.updateMatchedPairs();
+        
+        midiFile.addTrack(sequence);
+        
+        juce::FileOutputStream stream(file);
+        if (stream.openedOk())
+        {
+            midiFile.writeTo(stream);
+            stream.flush();
+            
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::InfoIcon,
+                "Rubato Bake",
+                "MIDI file exported successfully to:\n" + file.getFullPathName(),
+                "OK");
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Rubato Bake",
+                "Failed to write MIDI file.",
+                "OK");
+        }
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -252,6 +252,21 @@ RubatoEditor::RubatoEditor(RubatoProcessor& p)
     xlModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         processor.getApvts(), "xlMode", xlModeToggle);
     
+    bakeArmToggle.setButtonText("Bake Arm");
+    bakeArmToggle.setClickingTogglesState(true);
+    bakeArmToggle.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff4444));
+    bakeArmToggle.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    bakeArmToggle.onClick = [this]() {
+        processor.setBakeArmed(bakeArmToggle.getToggleState());
+    };
+    addAndMakeVisible(bakeArmToggle);
+    
+    bakeButton.setButtonText("Bake");
+    bakeButton.onClick = [this]() {
+        processor.exportBakeToMidi();
+    };
+    addAndMakeVisible(bakeButton);
+    
     startTimerHz(30);
 }
 
@@ -630,6 +645,12 @@ void RubatoEditor::resized()
     
     row += sliderRowHeight;
     xlModeToggle.setBounds(pulseX, pulseY + row, 100, 25);
+    
+    row += buttonRowHeight;
+    bakeArmToggle.setBounds(pulseX, pulseY + row, 100, 25);
+    
+    row += buttonRowHeight;
+    bakeButton.setBounds(pulseX, pulseY + row, 100, 25);
     
     int squishY = 769;
     squishLabel.setBounds(pulseX, squishY, 100, 20);

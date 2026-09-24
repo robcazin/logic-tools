@@ -27,13 +27,16 @@ Listens to XL **CC 29 / 30 / 31** (absolute knobs), converts deltas into Key Com
 - CC 30 (beat) → CC 92 (forward) / CC 93 (back)
 - CC 31 (division) → CC 94 (forward) / CC 95 (back)
 
-Pulses are sent as CC value 127 then 0 on channel 1.
+Pulses are sent as CC value 127 then 0 on channel 1. Bar knob pulses are multiplied ×4 in the source (scrubKCMultiply).
 
 In Logic:
-1. Go to **Logic Pro > Control Surfaces > Learn Assignment**
-2. For Playhead Forward by Bar: tweak CC 29 clockwise → Logic learns CC 90 from LCXL Scrub KC
-3. For Playhead Rewind by Bar: tweak CC 29 counter-clockwise → Logic learns CC 91 from LCXL Scrub KC
-4. Repeat for Beat (CC 30) and Division (CC 31)
+1. Open **Key Commands** window (**Option-K**)
+2. Before each Learn: turn on **Logic Pro > Control Surfaces > Bypass All Control Surfaces** (Logic turns it back off after each Learn)
+3. Switch off other MIDI controllers (e.g. Komplete Kontrol S61) so Learn doesn't grab stray messages
+4. Search for and select "Forward by Bar" command, click **Learn by MIDI**, tweak CC 29 clockwise → Logic learns CC 90 from LCXL Scrub KC
+5. Select "Rewind by Bar" command, turn on **Bypass All Control Surfaces** again, click **Learn by MIDI**, tweak CC 29 counter-clockwise → Logic learns CC 91
+6. Repeat for "Forward/Rewind by Beat" (CC 30) and "Forward/Rewind by Division Value" (CC 31)
+7. Keep the learns in **(No Zone)**, not under the LCXL3 1 control surface
 
 First knob move only arms (no jump). Bandwidth: a few bytes per encoder tick.
 

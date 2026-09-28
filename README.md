@@ -101,3 +101,9 @@ Live Scripter master is `scripter/rubato-lag.js` (currently Rubato Lag 1.6.8).
 Paste that file into Logic Scripter. Version lives inside the file (`SCRIPT_VERSION`).
 
 Older numbered copies are in `scripter/archive/`.
+
+---
+
+## MIDI Helper Tools
+
+Mac-side MIDI helpers for Launch Control XL integration: [midi-hotkeys/](midi-hotkeys/)

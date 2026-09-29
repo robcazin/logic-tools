@@ -276,6 +276,28 @@ void RubatoEditor::timerCallback()
         autoButton.setToggleState(!shouldBeManual, juce::dontSendNotification);
     }
     
+    if (phraseLengthMode == 1) {
+        int detectedBars = processor.getDetectedPhraseBars();
+        if (displayDetectedPhraseBars != detectedBars) {
+            displayDetectedPhraseBars = detectedBars;
+            repaint();
+        }
+        
+        phraseLengthSlider.setEnabled(false);
+        phraseLengthSlider.setTextValueSuffix("");
+        phraseLengthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+        
+        juce::String displayText = juce::String(detectedBars);
+        if (phraseLengthSlider.getTextFromValue(phraseLengthSlider.getValue()) != displayText) {
+            phraseLengthSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+            phraseLengthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 60, 20);
+            phraseLengthSlider.setValue(detectedBars, juce::dontSendNotification);
+        }
+    } else {
+        phraseLengthSlider.setEnabled(true);
+        phraseLengthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    }
+    
     const int newTimingIntensity = processor.getPhraseTimingIntensity();
     if (newTimingIntensity != displayTimingIntensity)
     {
@@ -535,6 +557,13 @@ void RubatoEditor::paint(juce::Graphics& g)
     g.drawRect(squishGroupBounds, 2);
     g.setFont(12.0f);
     g.drawText("Squish", squishGroupBounds.withHeight(20), juce::Justification::centred);
+    
+    int phraseLengthMode = processor.getApvts().getRawParameterValue("phraseLengthMode")->load();
+    if (phraseLengthMode == 1) {
+        juce::Rectangle<int> phraseLengthBounds = phraseLengthSlider.getBounds();
+        g.setColour(juce::Colour(0xff7ec8e3));
+        g.drawRect(phraseLengthBounds.expanded(3), 2);
+    }
 }
 
 void RubatoEditor::resized()

@@ -43,6 +43,7 @@ public:
     int getPhraseCurveValue() const { return phraseCurveValue.load(std::memory_order_relaxed); }
     int getPhraseTimingIntensity() const { return phraseTimingIntensity.load(std::memory_order_relaxed); }
     int getVelocityShapeCurve() const { return velocityShapeCurve.load(std::memory_order_relaxed); }
+    int getDetectedPhraseBars() const { return detectedPhraseBars.load(std::memory_order_relaxed); }
     
     struct BandVelocity {
         std::atomic<int> value{0};
@@ -69,6 +70,7 @@ private:
     std::atomic<int> phraseCurveValue{0};
     std::atomic<int> phraseTimingIntensity{0};
     std::atomic<int> velocityShapeCurve{0};
+    std::atomic<int> detectedPhraseBars{4};
     
     double currentSampleRate = 44100.0;
     int64_t absoluteSampleClock = 0;

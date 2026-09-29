@@ -6,7 +6,8 @@
 #include <map>
 #include <set>
 
-class RubatoProcessor : public juce::AudioProcessor
+class RubatoProcessor : public juce::AudioProcessor,
+                          private juce::AsyncUpdater
 {
 public:
     RubatoProcessor();
@@ -65,6 +66,15 @@ public:
     int getNoteRingWritePos() const { return noteRingWritePos.load(std::memory_order_relaxed); }
 
 private:
+    void handleAsyncUpdate() override;
+    
+    struct PendingCCUpdate {
+        juce::String paramId;
+        float normalizedValue;
+    };
+    std::vector<PendingCCUpdate> pendingCCUpdates;
+    juce::CriticalSection ccUpdateLock;
+    
     juce::AudioProcessorValueTreeState apvts;
     std::atomic<int> phraseCurveValue{0};
     std::atomic<int> phraseTimingIntensity{0};

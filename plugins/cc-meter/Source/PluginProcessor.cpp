@@ -80,6 +80,26 @@ RubatoProcessor::RubatoProcessor()
     }
 }
 
+void RubatoProcessor::handleAsyncUpdate()
+{
+    std::vector<PendingCCUpdate> updates;
+    {
+        juce::ScopedLock lock(ccUpdateLock);
+        updates.swap(pendingCCUpdates);
+    }
+    
+    for (const auto& update : updates)
+    {
+        auto param = apvts.getParameter(update.paramId);
+        if (param != nullptr)
+        {
+            param->beginChangeGesture();
+            param->setValueNotifyingHost(update.normalizedValue);
+            param->endChangeGesture();
+        }
+    }
+}
+
 std::array<RubatoProcessor::NoteEvent, RubatoProcessor::NOTE_RING_SIZE> RubatoProcessor::getNoteRing()
 {
     return noteRing;
@@ -241,6 +261,59 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 {
     buffer.clear();
     
+    // Process XL Mode CCs FIRST, before any early returns
+    // This ensures CCs work even when transport is stopped
+    const bool xlMode = apvts.getRawParameterValue("xlMode")->load() > 0.5f;
+    
+    if (xlMode)
+    {
+        bool hadCCUpdates = false;
+        
+        for (const auto metadata : midiMessages)
+        {
+            auto msg = metadata.getMessage();
+            
+            if (msg.isController())
+            {
+                int ccNum = msg.getControllerNumber();
+                int ccVal = msg.getControllerValue();
+                juce::String paramId;
+                
+                // Map CC 21-26 to parameters
+                if (ccNum >= 21 && ccNum <= 26)
+                {
+                    const char* paramIds[] = {"amountMs", "velocityReplace", "floor", "compThreshold", "phraseLength", "squish"};
+                    int paramIndex = ccNum - 21;
+                    if (paramIndex < 6)
+                        paramId = paramIds[paramIndex];
+                }
+                // CC 76: Chord Spread
+                else if (ccNum == 76)
+                {
+                    paramId = "chordSpreadMs";
+                }
+                // CC 77: Velocity Boost
+                else if (ccNum == 77)
+                {
+                    paramId = "velocityBoost";
+                }
+                
+                // Queue the update for the message thread
+                if (paramId.isNotEmpty())
+                {
+                    juce::ScopedLock lock(ccUpdateLock);
+                    pendingCCUpdates.push_back({paramId, ccVal / 127.0f});
+                    hadCCUpdates = true;
+                }
+            }
+        }
+        
+        // Trigger async update if we have pending CC changes
+        if (hadCCUpdates)
+            triggerAsyncUpdate();
+    }
+    
+    // Now check playhead (CCs are already processed above)
     auto playHead = getPlayHead();
     if (playHead == nullptr) {
         absoluteSampleClock += buffer.getNumSamples();
@@ -315,7 +388,6 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     }
     lastReAnchor = reAnchor;
     
-    const bool xlMode = apvts.getRawParameterValue("xlMode")->load() > 0.5f;
     const int amountMs = apvts.getRawParameterValue("amountMs")->load();
     const int shapeIndex = apvts.getRawParameterValue("shape")->load();
     const int velocityBoost = apvts.getRawParameterValue("velocityBoost")->load();
@@ -367,44 +439,17 @@ void RubatoProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         
         if (msg.isController())
         {
-            if (xlMode) {
-                int ccNum = msg.getControllerNumber();
-                if (ccNum >= 21 && ccNum <= 26) {
-                    int ccVal = msg.getControllerValue();
-                    
-                    const char* paramIds[] = {"amountMs", "velocityReplace", "floor", "compThreshold", "phraseLength", "squish"};
-                    int paramIndex = ccNum - 21;
-                    
-                    if (paramIndex < 6) {
-                        auto param = apvts.getParameter(paramIds[paramIndex]);
-                        if (param != nullptr) {
-                            param->setValueNotifyingHost(ccVal / 127.0f);
-                        }
-                    }
-                    continue;
-                }
-                
-                if (ccNum == 76) {
-                    int ccVal = msg.getControllerValue();
-                    auto param = apvts.getParameter("chordSpreadMs");
-                    if (param != nullptr) {
-                        param->setValueNotifyingHost(ccVal / 127.0f);
-                    }
-                    continue;
-                }
-                
-                if (ccNum == 77) {
-                    int ccVal = msg.getControllerValue();
-                    auto param = apvts.getParameter("velocityBoost");
-                    if (param != nullptr) {
-                        param->setValueNotifyingHost(ccVal / 127.0f);
-                    }
-                    continue;
-                }
-            }
+            // XL mode CCs are already processed at the top of processBlock
+            // Just store the value and pass through non-XL CCs
+            int ccNum = msg.getControllerNumber();
+            lastCCValues[ccNum] = msg.getControllerValue();
             
-            lastCCValues[msg.getControllerNumber()] = msg.getControllerValue();
-            processedMidi.addEvent(msg, samplePos);
+            // Only pass through if not an XL-handled CC
+            if (!xlMode || 
+                ((ccNum < 21 || ccNum > 26) && ccNum != 76 && ccNum != 77))
+            {
+                processedMidi.addEvent(msg, samplePos);
+            }
         }
         else if (msg.isNoteOn())
         {

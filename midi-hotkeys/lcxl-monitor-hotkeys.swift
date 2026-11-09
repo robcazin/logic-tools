@@ -475,7 +475,7 @@ private var lastScrubRail: [UInt8: Int] = [:]  // 0 none, +1 high(127), -1 low(0
 private let scrubKCFwd: [UInt8: UInt8] = [29: 90, 30: 92, 31: 94]
 private let scrubKCBack: [UInt8: UInt8] = [29: 91, 30: 93, 31: 95]
 /// Extra KC fires per encoder step (Bar×4 ≈ 1 bar when Division is /4 in 4/4).
-private let scrubKCMultiply: [UInt8: Int] = [29: 4, 30: 1, 31: 1]
+private let scrubKCMultiply: [UInt8: Int] = [29: 4, 30: 5, 31: 1]
 private let scrubKCMaxPulses = 64  // only clamp insane bursts; don't punish fast twists
 
 private func ensureScrubSource() {
@@ -524,36 +524,48 @@ private func emitScrubRel(cc: UInt8, absVal: UInt8) {
         log("scrub KC CC\(cc) dir=\(dir) → \(n)×CC\(kc)")
     }
 
-    // After hitting a rail, keep pulsing while XL re-sends 0/127; only leave rail
-    // once the knob backs off so reverse isn't inverted.
+    // Handle rail state: when at 0 or 127, keep pulsing and auto-recenter
+    // to allow indefinite turning in one direction.
     let rail = lastScrubRail[cc] ?? 0
     if rail == 1 {
+        // At high rail (127)
         if absVal >= 127 {
+            // Still at 127, keep firing forward and recenter to allow continued motion
             fire(1, steps: mult)
-            lastScrubAbs[cc] = 127
+            lastScrubAbs[cc] = 64  // recenter to middle
+            lastScrubRail[cc] = 0  // leave rail state
+            log("scrub KC CC\(cc) recentered from high rail")
             return
         }
         if absVal <= 120 {
+            // Backed off from rail
             lastScrubRail[cc] = 0
             lastScrubAbs[cc] = absVal
             log("scrub KC CC\(cc) left high rail @\(absVal)")
             return
         }
+        // Still in hysteresis zone near 127
         lastScrubAbs[cc] = absVal
         return
     }
     if rail == -1 {
+        // At low rail (0)
         if absVal == 0 {
+            // Still at 0, keep firing backward and recenter to allow continued motion
             fire(-1, steps: mult)
-            lastScrubAbs[cc] = 0
+            lastScrubAbs[cc] = 64  // recenter to middle
+            lastScrubRail[cc] = 0  // leave rail state
+            log("scrub KC CC\(cc) recentered from low rail")
             return
         }
         if absVal >= 7 {
+            // Backed off from rail
             lastScrubRail[cc] = 0
             lastScrubAbs[cc] = absVal
             log("scrub KC CC\(cc) left low rail @\(absVal)")
             return
         }
+        // Still in hysteresis zone near 0
         lastScrubAbs[cc] = absVal
         return
     }
@@ -569,7 +581,10 @@ private func emitScrubRel(cc: UInt8, absVal: UInt8) {
     if delta == 0 { return }
 
     let dir = delta > 0 ? 1 : -1
-    fire(dir, steps: abs(delta) * mult)
+    // Cap delta at 2 to keep pulse counts sane (avoid 16× bursts from fast turns)
+    // Each capped step × mult gives consistent travel: Bar 4-8 pulses, Beat 5-10 pulses
+    let cappedDelta = min(abs(delta), 2)
+    fire(dir, steps: cappedDelta * mult)
 
     if absVal >= 127 && dir > 0 {
         lastScrubRail[cc] = 1

@@ -109,6 +109,7 @@ private:
     int displayPhraseCurve = 0;
     int displayTimingIntensity = 0;
     std::array<int, 16> displayBandVelocities;
+    int displayDetectedPhraseBars = 4;
     
     struct DisplayNote {
         uint8_t pitch;

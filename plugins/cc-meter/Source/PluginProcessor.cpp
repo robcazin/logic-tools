@@ -220,6 +220,7 @@ float RubatoProcessor::calculatePhraseFraction(juce::AudioPlayHead::PositionInfo
         int phraseBars;
         if (phraseLengthMode == 1) {
             phraseBars = timeSignature->numerator;
+            detectedPhraseBars.store(juce::jlimit(1, 32, phraseBars), std::memory_order_relaxed);
         } else {
             phraseBars = apvts.getRawParameterValue("phraseLength")->load();
         }
